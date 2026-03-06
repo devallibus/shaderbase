@@ -13,6 +13,7 @@ import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as ShadersRouteImport } from './routes/shaders'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ShadersIndexRouteImport } from './routes/shaders.index'
 import { Route as ShadersNameRouteImport } from './routes/shaders.$name'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -36,6 +37,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShadersIndexRoute = ShadersIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ShadersRoute,
+} as any)
 const ShadersNameRoute = ShadersNameRouteImport.update({
   id: '/$name',
   path: '/$name',
@@ -53,14 +59,15 @@ export interface FileRoutesByFullPath {
   '/shaders': typeof ShadersRouteWithChildren
   '/submit': typeof SubmitRoute
   '/shaders/$name': typeof ShadersNameRoute
+  '/shaders/': typeof ShadersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/shaders': typeof ShadersRouteWithChildren
   '/submit': typeof SubmitRoute
   '/shaders/$name': typeof ShadersNameRoute
+  '/shaders': typeof ShadersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -70,6 +77,7 @@ export interface FileRoutesById {
   '/shaders': typeof ShadersRouteWithChildren
   '/submit': typeof SubmitRoute
   '/shaders/$name': typeof ShadersNameRoute
+  '/shaders/': typeof ShadersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -80,9 +88,10 @@ export interface FileRouteTypes {
     | '/shaders'
     | '/submit'
     | '/shaders/$name'
+    | '/shaders/'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/shaders' | '/submit' | '/shaders/$name' | '/api/auth/$'
+  to: '/' | '/about' | '/submit' | '/shaders/$name' | '/shaders' | '/api/auth/$'
   id:
     | '__root__'
     | '/'
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/shaders'
     | '/submit'
     | '/shaders/$name'
+    | '/shaders/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +141,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/shaders/': {
+      id: '/shaders/'
+      path: '/'
+      fullPath: '/shaders/'
+      preLoaderRoute: typeof ShadersIndexRouteImport
+      parentRoute: typeof ShadersRoute
+    }
     '/shaders/$name': {
       id: '/shaders/$name'
       path: '/$name'
@@ -150,10 +167,12 @@ declare module '@tanstack/solid-router' {
 
 interface ShadersRouteChildren {
   ShadersNameRoute: typeof ShadersNameRoute
+  ShadersIndexRoute: typeof ShadersIndexRoute
 }
 
 const ShadersRouteChildren: ShadersRouteChildren = {
   ShadersNameRoute: ShadersNameRoute,
+  ShadersIndexRoute: ShadersIndexRoute,
 }
 
 const ShadersRouteWithChildren =
