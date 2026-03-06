@@ -20,4 +20,7 @@ export default defineConfig({
     tanstackStart(),
     solidPlugin({ ssr: true }),
   ],
+  build: {
+    chunkSizeWarningLimit: 800,
+  },
 })
