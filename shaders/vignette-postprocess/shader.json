@@ -1,0 +1,154 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "vignette-postprocess",
+  "displayName": "Vignette Postprocess",
+  "version": "0.1.0",
+  "summary": "A screen-space vignette pass adapted from the official Three.js example shader.",
+  "description": "A post-processing vignette shader adapted from Three.js example code. It darkens the screen edges based on distance from the viewport center and acts as the repository's reference entry for sourced fullscreen effects with exact provenance.",
+  "author": {
+    "name": "three.js authors",
+    "url": "https://threejs.org"
+  },
+  "license": "MIT",
+  "tags": ["vignette", "post-processing", "fullscreen", "composer", "screen-space"],
+  "category": "post-processing",
+  "capabilityProfile": {
+    "pipeline": "postprocessing",
+    "stage": "fullscreen-pass",
+    "requires": ["input-texture", "screen-space"],
+    "outputs": ["color"]
+  },
+  "compatibility": {
+    "three": ">=0.160.0",
+    "renderers": ["webgl1", "webgl2"],
+    "material": "post-processing-pass",
+    "environments": ["three", "react-three-fiber"]
+  },
+  "uniforms": [
+    {
+      "name": "tDiffuse",
+      "type": "sampler2D",
+      "defaultValue": null,
+      "description": "Input color buffer supplied by the post-processing chain."
+    },
+    {
+      "name": "offset",
+      "type": "float",
+      "defaultValue": 1,
+      "description": "Scales how far the vignette reaches toward the center.",
+      "min": 0.1,
+      "max": 3
+    },
+    {
+      "name": "darkness",
+      "type": "float",
+      "defaultValue": 1.15,
+      "description": "Controls how much the corners darken.",
+      "min": 0,
+      "max": 2
+    }
+  ],
+  "inputs": [
+    {
+      "name": "screenColor",
+      "kind": "texture",
+      "description": "Rendered scene color texture from the previous pass.",
+      "required": true
+    },
+    {
+      "name": "screenUv",
+      "kind": "uv",
+      "description": "Fullscreen quad UV coordinates.",
+      "required": true
+    }
+  ],
+  "outputs": [
+    {
+      "name": "screenColor",
+      "kind": "color",
+      "description": "Darkened output color with preserved alpha."
+    }
+  ],
+  "files": {
+    "vertex": "vertex.glsl",
+    "fragment": "fragment.glsl",
+    "includes": []
+  },
+  "recipes": [
+    {
+      "target": "three",
+      "path": "recipes/three.ts",
+      "exportName": "createVignettePass",
+      "summary": "Create a Three.js ShaderPass for EffectComposer.",
+      "placeholders": [
+        {
+          "name": "offset",
+          "kind": "number",
+          "description": "How aggressively the vignette reaches inward.",
+          "required": false,
+          "example": "1.2"
+        },
+        {
+          "name": "darkness",
+          "kind": "number",
+          "description": "Corner darkening strength.",
+          "required": false,
+          "example": "1.1"
+        }
+      ],
+      "requirements": ["effect-composer", "texture-input"]
+    },
+    {
+      "target": "r3f",
+      "path": "recipes/r3f.tsx",
+      "exportName": "VignetteEffect",
+      "summary": "Run the vignette as a manual EffectComposer pass in React Three Fiber.",
+      "placeholders": [
+        {
+          "name": "offset",
+          "kind": "number",
+          "description": "How aggressively the vignette reaches inward.",
+          "required": false,
+          "example": "1.2"
+        },
+        {
+          "name": "darkness",
+          "kind": "number",
+          "description": "Corner darkening strength.",
+          "required": false,
+          "example": "1.1"
+        }
+      ],
+      "requirements": ["canvas", "effect-composer", "texture-input"]
+    }
+  ],
+  "preview": {
+    "path": "preview.svg",
+    "format": "svg",
+    "width": 512,
+    "height": 512,
+    "deterministic": true
+  },
+  "provenance": {
+    "sourceKind": "adapted",
+    "sources": [
+      {
+        "name": "VignetteShader.js",
+        "kind": "file",
+        "url": "https://github.com/mrdoob/three.js/blob/dev/examples/jsm/shaders/VignetteShader.js",
+        "repositoryUrl": "https://github.com/mrdoob/three.js",
+        "revision": "dev:3ac5845ac21861413c9b5189072f9e1ecf3352b9",
+        "retrievedAt": "2026-03-06",
+        "license": "MIT",
+        "authors": ["three.js authors"],
+        "copyrightNotice": "Copyright © 2010-2026 three.js authors",
+        "notes": "The upstream file notes that the effect is based on PaintEffect from the ro.me project."
+      }
+    ],
+    "attribution": {
+      "summary": "Adapted from the official Three.js VignetteShader example under MIT.",
+      "requiredNotice": "Includes adapted code from the Three.js authors under the MIT License."
+    },
+    "notes": "ShaderBase keeps the screen-space vignette math and wraps it in manifest-driven recipes."
+  }
+}

@@ -1,0 +1,184 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "simplex-displacement",
+  "displayName": "Simplex Displacement",
+  "version": "0.1.0",
+  "summary": "A normal-driven displacement shader built around MIT simplex noise code.",
+  "description": "A ShaderBase surface and geometry reference shader that displaces vertices along their normals using 3D simplex noise. The noise implementation is adapted from ashima/webgl-noise and wrapped in a simpler material contract for Three.js and React Three Fiber.",
+  "author": {
+    "name": "ShaderBase"
+  },
+  "license": "MIT",
+  "tags": ["simplex-noise", "displacement", "geometry", "animated", "surface"],
+  "category": "geometry",
+  "capabilityProfile": {
+    "pipeline": "geometry",
+    "stage": "vertex-and-fragment",
+    "requires": ["time", "normals"],
+    "outputs": ["position-offset", "color"]
+  },
+  "compatibility": {
+    "three": ">=0.160.0",
+    "renderers": ["webgl1", "webgl2"],
+    "material": "shader-material",
+    "environments": ["three", "react-three-fiber"]
+  },
+  "uniforms": [
+    {
+      "name": "uTime",
+      "type": "float",
+      "defaultValue": 0,
+      "description": "Elapsed time in seconds."
+    },
+    {
+      "name": "uAmplitude",
+      "type": "float",
+      "defaultValue": 0.18,
+      "description": "Maximum offset distance along the mesh normal.",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "uFrequency",
+      "type": "float",
+      "defaultValue": 1.6,
+      "description": "Spatial scale of the simplex noise field.",
+      "min": 0.1,
+      "max": 8
+    },
+    {
+      "name": "uSpeed",
+      "type": "float",
+      "defaultValue": 0.4,
+      "description": "Rate at which the noise field animates over time.",
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "uLowColor",
+      "type": "vec3",
+      "defaultValue": [0.07, 0.22, 0.36],
+      "description": "Base color used in lower displaced regions."
+    },
+    {
+      "name": "uHighColor",
+      "type": "vec3",
+      "defaultValue": [0.42, 0.88, 0.92],
+      "description": "Accent color used in higher displaced regions."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "position",
+      "kind": "position",
+      "description": "Mesh vertex positions.",
+      "required": true
+    },
+    {
+      "name": "normal",
+      "kind": "normal",
+      "description": "Mesh vertex normals used to push the surface outward.",
+      "required": true
+    },
+    {
+      "name": "time",
+      "kind": "time",
+      "description": "Elapsed time value supplied by the host application.",
+      "required": true
+    }
+  ],
+  "outputs": [
+    {
+      "name": "surfaceOffset",
+      "kind": "position-offset",
+      "description": "Animated displacement along the interpolated vertex normal."
+    },
+    {
+      "name": "surfaceColor",
+      "kind": "color",
+      "description": "Color blend derived from the signed noise value."
+    }
+  ],
+  "files": {
+    "vertex": "vertex.glsl",
+    "fragment": "fragment.glsl",
+    "includes": []
+  },
+  "recipes": [
+    {
+      "target": "three",
+      "path": "recipes/three.ts",
+      "exportName": "createSimplexDisplacementMaterial",
+      "summary": "Create a ShaderMaterial and update its time uniform in a render loop.",
+      "placeholders": [
+        {
+          "name": "amplitude",
+          "kind": "number",
+          "description": "Maximum displacement amount.",
+          "required": false,
+          "example": "0.22"
+        },
+        {
+          "name": "frequency",
+          "kind": "number",
+          "description": "Spatial scale of the simplex field.",
+          "required": false,
+          "example": "2.1"
+        }
+      ],
+      "requirements": ["three-scene", "mesh", "animation-loop"]
+    },
+    {
+      "target": "r3f",
+      "path": "recipes/r3f.tsx",
+      "exportName": "SimplexDisplacementMaterial",
+      "summary": "Use the shader as a reusable React Three Fiber material component.",
+      "placeholders": [
+        {
+          "name": "amplitude",
+          "kind": "number",
+          "description": "Maximum displacement amount.",
+          "required": false,
+          "example": "0.22"
+        },
+        {
+          "name": "frequency",
+          "kind": "number",
+          "description": "Spatial scale of the simplex field.",
+          "required": false,
+          "example": "2.1"
+        }
+      ],
+      "requirements": ["canvas", "mesh", "animation-loop"]
+    }
+  ],
+  "preview": {
+    "path": "preview.svg",
+    "format": "svg",
+    "width": 512,
+    "height": 512,
+    "deterministic": true
+  },
+  "provenance": {
+    "sourceKind": "adapted",
+    "sources": [
+      {
+        "name": "noise3D.glsl",
+        "kind": "file",
+        "url": "https://github.com/ashima/webgl-noise/blob/master/src/noise3D.glsl",
+        "repositoryUrl": "https://github.com/ashima/webgl-noise",
+        "revision": "master:0d5858780b7edcededdc2bff9e2c9d4d369fe1ed",
+        "retrievedAt": "2026-03-06",
+        "license": "MIT",
+        "authors": ["Ian McEwan", "Ashima Arts", "Stefan Gustavson"],
+        "copyrightNotice": "Copyright (C) 2011 Ashima Arts. All rights reserved.",
+        "notes": "The simplex noise helper was adapted into the vertex shader and wrapped in an original ShaderBase displacement material."
+      }
+    ],
+    "attribution": {
+      "summary": "Uses MIT simplex noise code from ashima/webgl-noise with an original ShaderBase displacement wrapper.",
+      "requiredNotice": "Includes adapted simplex noise code by Ian McEwan / Ashima Arts, maintained by Stefan Gustavson, under the MIT License."
+    },
+    "notes": "ShaderBase authored the displacement controls, color blend, and integration recipes."
+  }
+}

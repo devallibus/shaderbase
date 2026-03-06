@@ -1,0 +1,17 @@
+# Local agent state
+.claude/
+.instance/
+.mcp_data/
+
+# Dependencies
+node_modules/
+
+# Build and coverage output
+dist/
+coverage/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example

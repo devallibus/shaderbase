@@ -1,0 +1,156 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "gradient-radial",
+  "displayName": "Radial Gradient",
+  "version": "0.1.0",
+  "summary": "A small surface shader that blends two colors from the UV center outward.",
+  "description": "A deterministic seed shader for ShaderBase. It renders a radial gradient with explicit compatibility, provenance, and recipe metadata so the repository has one end-to-end reference entry for search, SDK, and MCP work.",
+  "author": {
+    "name": "ShaderBase"
+  },
+  "license": "MIT",
+  "tags": ["gradient", "radial", "color", "surface", "ui"],
+  "category": "color",
+  "capabilityProfile": {
+    "pipeline": "surface",
+    "stage": "vertex-and-fragment",
+    "requires": ["uv"],
+    "outputs": ["color", "alpha"]
+  },
+  "compatibility": {
+    "three": ">=0.160.0",
+    "renderers": ["webgl2"],
+    "material": "shader-material",
+    "environments": ["three", "react-three-fiber"]
+  },
+  "uniforms": [
+    {
+      "name": "uInnerColor",
+      "type": "vec3",
+      "defaultValue": [1, 0.76, 0.32],
+      "description": "RGB color at the center of the gradient."
+    },
+    {
+      "name": "uOuterColor",
+      "type": "vec3",
+      "defaultValue": [0.1, 0.14, 0.24],
+      "description": "RGB color at the outer edge of the gradient."
+    },
+    {
+      "name": "uCenter",
+      "type": "vec2",
+      "defaultValue": [0.5, 0.5],
+      "description": "UV-space center point of the gradient."
+    },
+    {
+      "name": "uRadius",
+      "type": "float",
+      "defaultValue": 0.42,
+      "description": "Radius where the blend reaches the outer color.",
+      "min": 0.05,
+      "max": 1
+    },
+    {
+      "name": "uSoftness",
+      "type": "float",
+      "defaultValue": 0.18,
+      "description": "Additional falloff beyond the radius.",
+      "min": 0,
+      "max": 1
+    }
+  ],
+  "inputs": [
+    {
+      "name": "uv",
+      "kind": "uv",
+      "description": "Mesh UV coordinates.",
+      "required": true
+    },
+    {
+      "name": "position",
+      "kind": "position",
+      "description": "Mesh vertex positions for the passthrough vertex shader.",
+      "required": true
+    }
+  ],
+  "outputs": [
+    {
+      "name": "baseColor",
+      "kind": "color",
+      "description": "Interpolated RGB gradient color."
+    },
+    {
+      "name": "opacity",
+      "kind": "alpha",
+      "description": "Opaque alpha channel set to 1.0."
+    }
+  ],
+  "files": {
+    "vertex": "vertex.glsl",
+    "fragment": "fragment.glsl",
+    "includes": []
+  },
+  "recipes": [
+    {
+      "target": "three",
+      "path": "recipes/three.ts",
+      "exportName": "createGradientRadialMaterial",
+      "summary": "Create a ShaderMaterial for a mesh surface in vanilla Three.js.",
+      "placeholders": [
+        {
+          "name": "innerColor",
+          "kind": "color",
+          "description": "Override the center color.",
+          "required": false,
+          "example": "\"#ffc252\""
+        },
+        {
+          "name": "radius",
+          "kind": "number",
+          "description": "Tune the main gradient radius.",
+          "required": false,
+          "example": "0.5"
+        }
+      ],
+      "requirements": ["three-scene", "mesh"]
+    },
+    {
+      "target": "r3f",
+      "path": "recipes/r3f.tsx",
+      "exportName": "GradientRadialMaterial",
+      "summary": "Render the shader as a reusable React Three Fiber material component.",
+      "placeholders": [
+        {
+          "name": "innerColor",
+          "kind": "color",
+          "description": "Override the center color.",
+          "required": false,
+          "example": "\"#ffc252\""
+        },
+        {
+          "name": "softness",
+          "kind": "number",
+          "description": "Adjust the outer falloff.",
+          "required": false,
+          "example": "0.2"
+        }
+      ],
+      "requirements": ["canvas", "mesh"]
+    }
+  ],
+  "preview": {
+    "path": "preview.svg",
+    "format": "svg",
+    "width": 512,
+    "height": 512,
+    "deterministic": true
+  },
+  "provenance": {
+    "sourceKind": "original",
+    "sources": [],
+    "attribution": {
+      "summary": "Authored directly in the ShaderBase repository."
+    },
+    "notes": "Seed shader authored inside the repository to establish the manifest contract."
+  }
+}
