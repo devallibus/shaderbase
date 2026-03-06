@@ -1,17 +1,20 @@
 import { createServerFn } from '@tanstack/solid-start'
-import { z } from 'zod'
 
-const submitReviewInput = z.object({
-  shaderName: z.string().min(1),
-  rating: z.number().int().min(1).max(5),
-  comment: z.string().optional(),
-  source: z.string().default('web'),
-  agentContext: z.record(z.unknown()).optional(),
-  userId: z.string().optional(),
-})
+type SubmitReviewInput = {
+  shaderName: string
+  rating: number
+  comment?: string
+  source?: string
+  agentContext?: Record<string, unknown>
+  userId?: string
+}
+
+type GetReviewsInput = {
+  shaderName: string
+}
 
 export const submitReview = createServerFn({ method: 'POST' })
-  .validator(submitReviewInput)
+  .inputValidator((input: SubmitReviewInput) => input)
   .handler(async ({ data }) => {
     const { existsSync } = await import('node:fs')
     const { join, resolve } = await import('node:path')
@@ -28,7 +31,7 @@ export const submitReview = createServerFn({ method: 'POST' })
       data.shaderName,
       data.rating,
       data.comment ?? null,
-      data.source,
+      data.source ?? 'web',
       data.agentContext ? JSON.stringify(data.agentContext) : null,
       data.userId ?? null,
     )
@@ -36,12 +39,8 @@ export const submitReview = createServerFn({ method: 'POST' })
     return { ok: true as const, reviewId }
   })
 
-const getReviewsInput = z.object({
-  shaderName: z.string().min(1),
-})
-
 export const getReviews = createServerFn({ method: 'GET' })
-  .validator(getReviewsInput)
+  .inputValidator((input: GetReviewsInput) => input)
   .handler(async ({ data }) => {
     const { getReviewsForShader } = await import('../../lib/server/reviews-db')
     return getReviewsForShader(data.shaderName)

@@ -1,5 +1,4 @@
 import { createServerFn } from '@tanstack/solid-start'
-import { z } from 'zod'
 
 export type ShaderDetailUniform = {
   name: string
@@ -70,7 +69,7 @@ export type ShaderDetail = {
 }
 
 export const getShaderDetail = createServerFn({ method: 'GET' })
-  .validator(z.object({ name: z.string().min(1) }))
+  .inputValidator((input: { name: string }) => input)
   .handler(async ({ data }): Promise<ShaderDetail> => {
     const { readFile } = await import('node:fs/promises')
     const { join, resolve } = await import('node:path')

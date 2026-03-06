@@ -1,8 +1,6 @@
 import { createServerFn } from '@tanstack/solid-start'
 import { z } from 'zod'
 
-const resolveInput = z.object({ rawInput: z.string().min(1) })
-
 export type ResolvedSource = {
   code: string
   sourceType: 'glsl' | 'shadertoy' | 'gist' | 'github-file'
@@ -10,7 +8,7 @@ export type ResolvedSource = {
 }
 
 export const resolveShaderSource = createServerFn({ method: 'POST' })
-  .validator(resolveInput)
+  .inputValidator((input: { rawInput: string }) => input)
   .handler(async ({ data }): Promise<ResolvedSource> => {
     const input = data.rawInput.trim()
 
@@ -94,18 +92,6 @@ export const resolveShaderSource = createServerFn({ method: 'POST' })
     return { code: input, sourceType: 'glsl' }
   })
 
-const aiParseInput = z.object({
-  code: z.string().min(1),
-  sourceType: z.string(),
-  metadata: z
-    .object({
-      title: z.string().optional(),
-      author: z.string().optional(),
-      url: z.string().optional(),
-    })
-    .optional(),
-})
-
 const aiFormDataSchema = z.object({
   name: z.string(),
   displayName: z.string(),
@@ -167,8 +153,14 @@ RULES:
 - Always set capabilityOutputs to at least ["color"].
 - For min/max on uniforms, provide reasonable ranges as strings (e.g., "0", "1") or empty strings if unknown.`
 
+type AiParseInput = {
+  code: string
+  sourceType: string
+  metadata?: { title?: string; author?: string; url?: string }
+}
+
 export const aiParseShader = createServerFn({ method: 'POST' })
-  .validator(aiParseInput)
+  .inputValidator((input: AiParseInput) => input)
   .handler(async ({ data }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
