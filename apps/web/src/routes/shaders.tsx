@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/solid-router'
+import { Outlet, createFileRoute, useMatchRoute } from '@tanstack/solid-router'
 import { useServerFn } from '@tanstack/solid-start'
 import { For, Show, createMemo, createSignal, onMount } from 'solid-js'
 import { listShaders, type ShaderEntry } from '../lib/server/shaders'
@@ -6,18 +6,28 @@ import SearchBar from '../components/SearchBar'
 import ShaderCard from '../components/ShaderCard'
 
 export const Route = createFileRoute('/shaders')({
-  validateSearch: (search: Record<string, unknown>) => ({
-    q: (search.q as string) ?? '',
-  }),
-  component: ShadersPage,
+  component: ShadersLayout,
 })
 
+function ShadersLayout() {
+  const matchRoute = useMatchRoute()
+  const hasChild = () => matchRoute({ to: '/shaders/$name', fuzzy: true })
+
+  return (
+    <Show when={!hasChild()} fallback={<Outlet />}>
+      <ShadersPage />
+    </Show>
+  )
+}
+
 function ShadersPage() {
-  const routeSearch = Route.useSearch()
   const fetchShaders = useServerFn(listShaders)
   const [shaders, setShaders] = createSignal<ShaderEntry[]>([])
   const [loading, setLoading] = createSignal(true)
-  const [query, setQuery] = createSignal(routeSearch().q)
+  const initialQ = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('q') ?? ''
+    : ''
+  const [query, setQuery] = createSignal(initialQ)
   const [categoryFilter, setCategoryFilter] = createSignal('')
   const [pipelineFilter, setPipelineFilter] = createSignal('')
 
