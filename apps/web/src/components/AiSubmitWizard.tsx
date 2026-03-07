@@ -4,6 +4,7 @@ import {
   resolveShaderSource,
   aiParseShader,
 } from '../lib/server/ai-parse'
+import { createShaderPR } from '../lib/server/github-pr'
 import type { ShaderDetailUniform } from '../lib/server/shader-detail'
 import ShaderPreviewCanvas from './ShaderPreviewCanvas'
 import SurfaceCard from './ui/SurfaceCard'
@@ -53,12 +54,16 @@ type Step = 'input' | 'processing' | 'review'
 export default function AiSubmitWizard() {
   const resolve = useServerFn(resolveShaderSource)
   const aiParse = useServerFn(aiParseShader)
+  const submitPR = useServerFn(createShaderPR)
 
   const [step, setStep] = createSignal<Step>('input')
   const [rawInput, setRawInput] = createSignal('')
   const [parseError, setParseError] = createSignal('')
   const [processingStatus, setProcessingStatus] = createSignal('')
   const [parsed, setParsed] = createSignal<AiParsedShader | null>(null)
+  const [prLoading, setPrLoading] = createSignal(false)
+  const [prError, setPrError] = createSignal('')
+  const [prUrl, setPrUrl] = createSignal('')
 
   const previewUniforms = (): ShaderDetailUniform[] => {
     const data = parsed()
@@ -107,6 +112,110 @@ export default function AiSubmitWizard() {
     } catch (e) {
       setParseError(e instanceof Error ? e.message : 'Failed to parse shader')
       setStep('input')
+    }
+  }
+
+  const buildManifest = (data: AiParsedShader): Record<string, unknown> => {
+    const parseDefault = (u: AiParsedShader['uniforms'][number]) => {
+      try {
+        if (u.type === 'float' || u.type === 'int') return Number(u.defaultValue) || 0
+        if (u.type === 'bool') return u.defaultValue === 'true'
+        if (['vec2', 'vec3', 'vec4', 'color'].includes(u.type)) {
+          return u.defaultValue.split(',').map((v) => Number(v.trim()) || 0)
+        }
+        return u.defaultValue || null
+      } catch {
+        return 0
+      }
+    }
+
+    return {
+      schemaVersion: '0.1.0',
+      name: data.name,
+      displayName: data.displayName,
+      version: '0.1.0',
+      summary: data.summary,
+      description: data.description,
+      author: { name: data.authorName },
+      license: 'MIT',
+      tags: data.tagsText.split(',').map((t) => t.trim()).filter(Boolean),
+      category: data.category,
+      capabilityProfile: {
+        pipeline: data.pipeline,
+        stage: data.stage,
+        requires: data.capabilityRequires,
+        outputs: data.capabilityOutputs,
+      },
+      compatibility: {
+        three: '>=0.160.0',
+        renderers: ['webgl2'],
+        material: data.material,
+        environments: ['three', 'react-three-fiber'],
+      },
+      uniforms: data.uniforms.map((u) => ({
+        name: u.name,
+        type: u.type,
+        defaultValue: parseDefault(u),
+        description: u.description,
+        ...(u.min ? { min: Number(u.min) } : {}),
+        ...(u.max ? { max: Number(u.max) } : {}),
+      })),
+      inputs: data.inputs.map((i) => ({
+        name: i.name,
+        kind: i.kind,
+        description: i.description,
+        required: i.required,
+      })),
+      outputs: data.outputs.map((o) => ({
+        name: o.name,
+        kind: o.kind,
+        description: o.description,
+      })),
+      files: {
+        vertex: 'vertex.glsl',
+        fragment: 'fragment.glsl',
+        includes: [],
+      },
+      provenance: {
+        sourceKind: data.sourceKind,
+        sources: [],
+        attribution: {
+          summary: data.attributionSummary,
+        },
+      },
+    }
+  }
+
+  const handleCreatePR = async () => {
+    const data = parsed()
+    if (!data) return
+
+    setPrLoading(true)
+    setPrError('')
+    setPrUrl('')
+
+    try {
+      const manifest = buildManifest(data)
+      const recipes: Record<string, { code: string; fileName: string }> = {}
+
+      // Currently the AI parse doesn't generate recipe code, but this is
+      // ready for when it does. For now, recipes will be empty.
+
+      const result = await submitPR({
+        data: {
+          name: data.name,
+          manifest,
+          vertexSource: data.vertexShader,
+          fragmentSource: data.fragmentShader,
+          recipes,
+        },
+      })
+
+      setPrUrl(result.prUrl)
+    } catch (e) {
+      setPrError(e instanceof Error ? e.message : 'Failed to create pull request')
+    } finally {
+      setPrLoading(false)
     }
   }
 
@@ -174,6 +283,8 @@ export default function AiSubmitWizard() {
               onClick={() => {
                 setStep('input')
                 setParsed(null)
+                setPrUrl('')
+                setPrError('')
               }}
             >
               Start over
@@ -353,19 +464,46 @@ export default function AiSubmitWizard() {
               </div>
             </SurfaceCard>
 
-            {/* Create PR button (placeholder for Task 9) */}
+            {/* Create PR */}
             <div class="pt-2">
-              <button
-                type="button"
-                class="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-surface-primary opacity-50 cursor-not-allowed"
-                disabled
-                title="GitHub PR creation will be enabled in a future update."
-              >
-                Create Pull Request (coming soon)
-              </button>
-              <p class="mt-2 text-xs text-text-muted">
-                PR creation will be available once GitHub integration is complete.
-              </p>
+              <Show when={prUrl()}>
+                <div class="mb-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
+                  <p class="font-semibold text-text-primary">
+                    Pull request created successfully!
+                  </p>
+                  <a
+                    href={prUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="mt-1 inline-block text-accent underline hover:text-accent/80"
+                  >
+                    {prUrl()}
+                  </a>
+                </div>
+              </Show>
+              <Show when={prError()}>
+                <p class="mb-3 rounded-xl border border-danger/30 bg-danger-dim/20 px-3 py-2 text-sm text-danger">
+                  {prError()}
+                </p>
+              </Show>
+              <Show when={!prUrl()}>
+                <button
+                  type="button"
+                  class="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-surface-primary transition hover:bg-accent/80 disabled:opacity-50"
+                  disabled={prLoading()}
+                  onClick={() => void handleCreatePR()}
+                >
+                  {prLoading() ? 'Creating Pull Request...' : 'Create Pull Request'}
+                </button>
+              </Show>
+              <Show when={prLoading()}>
+                <div class="mt-2 flex items-center gap-2">
+                  <div class="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                  <p class="text-xs text-text-muted">
+                    Creating branch and pull request on GitHub...
+                  </p>
+                </div>
+              </Show>
             </div>
           </div>
 
