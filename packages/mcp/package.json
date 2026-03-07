@@ -1,0 +1,12 @@
+{
+  "name": "@shaderbase/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-strip-types src/handlers.test.ts"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}
