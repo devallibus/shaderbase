@@ -1,0 +1,7 @@
+name = "shaderbase-web"
+compatibility_date = "2026-03-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "shaderbase-reviews"
+database_id = "b37e0613-bd65-4ccc-82a3-d27979600314"
