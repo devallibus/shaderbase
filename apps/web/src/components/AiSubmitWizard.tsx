@@ -1,46 +1,56 @@
-import { Show, createMemo, createSignal } from 'solid-js'
-import { createStore, reconcile } from 'solid-js/store'
+import { For, Show, createSignal } from 'solid-js'
 import { useServerFn } from '@tanstack/solid-start'
 import {
   resolveShaderSource,
   aiParseShader,
 } from '../lib/server/ai-parse'
-import {
-  buildDraftArtifact,
-  createDefaultFormData,
-  createOutputRow,
-  createSourceRow,
-  environmentOptions,
-  materialOptions,
-  pipelineOptions,
-  recipeRequirementOptions,
-  rendererOptions,
-  sourceKindOptions,
-  stageOptions,
-  type SubmissionFormData,
-} from '../lib/submission-draft'
+import type { ShaderDetailUniform } from '../lib/server/shader-detail'
 import ShaderPreviewCanvas from './ShaderPreviewCanvas'
 import SurfaceCard from './ui/SurfaceCard'
 import Kicker from './ui/Kicker'
-import SectionBlock from './ui/SectionBlock'
-import Field from './ui/Field'
-import TextInput from './ui/TextInput'
-import TextArea from './ui/TextArea'
-import SelectInput from './ui/SelectInput'
-import PillGroup from './ui/PillGroup'
-import SourceEditor from './form/SourceEditor'
-import RecipeEditor from './form/RecipeEditor'
 
-type AiSubmitWizardProps = {
-  onSubmit: (form: SubmissionFormData) => Promise<void>
-  submitting: boolean
-  submitError: string
-  submitStatus: string
+/** The shape returned by the AI parse server function. */
+type AiParsedShader = {
+  name: string
+  displayName: string
+  summary: string
+  description: string
+  authorName: string
+  category: string
+  tagsText: string
+  pipeline: string
+  stage: string
+  capabilityRequires: string[]
+  capabilityOutputs: string[]
+  material: string
+  sourceKind: string
+  attributionSummary: string
+  uniforms: Array<{
+    name: string
+    type: string
+    defaultValue: string
+    description: string
+    min: string
+    max: string
+  }>
+  inputs: Array<{
+    name: string
+    kind: string
+    description: string
+    required: boolean
+  }>
+  outputs: Array<{
+    name: string
+    kind: string
+    description: string
+  }>
+  vertexShader: string
+  fragmentShader: string
 }
 
 type Step = 'input' | 'processing' | 'review'
 
-export default function AiSubmitWizard(props: AiSubmitWizardProps) {
+export default function AiSubmitWizard() {
   const resolve = useServerFn(resolveShaderSource)
   const aiParse = useServerFn(aiParseShader)
 
@@ -48,24 +58,30 @@ export default function AiSubmitWizard(props: AiSubmitWizardProps) {
   const [rawInput, setRawInput] = createSignal('')
   const [parseError, setParseError] = createSignal('')
   const [processingStatus, setProcessingStatus] = createSignal('')
-  const [form, setForm] = createStore(createDefaultFormData())
+  const [parsed, setParsed] = createSignal<AiParsedShader | null>(null)
 
-  const previewState = createMemo(() => {
-    try {
-      const artifact = buildDraftArtifact(form)
-      return { error: '', manifest: JSON.stringify(artifact.manifest, null, 2) }
-    } catch (error) {
-      return {
-        error: error instanceof Error ? error.message : String(error),
-        manifest: '',
-      }
-    }
-  })
-
-  const toggleArrayValue = <T extends string>(current: readonly T[], value: T) => {
-    return current.includes(value)
-      ? current.filter((item) => item !== value)
-      : [...current, value]
+  const previewUniforms = (): ShaderDetailUniform[] => {
+    const data = parsed()
+    if (!data) return []
+    return data.uniforms.map((u) => ({
+      name: u.name,
+      type: u.type,
+      description: u.description,
+      defaultValue: (() => {
+        try {
+          if (u.type === 'float' || u.type === 'int') return Number(u.defaultValue) || 0
+          if (u.type === 'bool') return u.defaultValue === 'true'
+          if (['vec2', 'vec3', 'vec4', 'color'].includes(u.type)) {
+            return u.defaultValue.split(',').map((v) => Number(v.trim()) || 0)
+          }
+          return u.defaultValue || null
+        } catch {
+          return 0
+        }
+      })(),
+      min: u.min ? Number(u.min) : undefined,
+      max: u.max ? Number(u.max) : undefined,
+    }))
   }
 
   const handleParse = async () => {
@@ -78,7 +94,7 @@ export default function AiSubmitWizard(props: AiSubmitWizardProps) {
       const resolved = await resolve({ data: { rawInput: rawInput() } })
 
       setProcessingStatus('Analyzing shader with AI...')
-      const parsed = await aiParse({
+      const result = await aiParse({
         data: {
           code: resolved.code,
           sourceType: resolved.sourceType,
@@ -86,69 +102,12 @@ export default function AiSubmitWizard(props: AiSubmitWizardProps) {
         },
       })
 
-      // Map AI output to form data
-      const newForm = createDefaultFormData()
-      newForm.name = parsed.name
-      newForm.displayName = parsed.displayName
-      newForm.summary = parsed.summary
-      newForm.description = parsed.description
-      newForm.authorName = parsed.authorName
-      newForm.category = parsed.category
-      newForm.tagsText = parsed.tagsText
-      newForm.pipeline = parsed.pipeline
-      newForm.stage = parsed.stage
-      newForm.capabilityRequires = parsed.capabilityRequires
-      newForm.capabilityOutputs = parsed.capabilityOutputs
-      newForm.material = parsed.material
-      newForm.sourceKind = parsed.sourceKind
-      newForm.attributionSummary = parsed.attributionSummary
-      newForm.vertexShader = parsed.vertexShader
-      newForm.fragmentShader = parsed.fragmentShader
-
-      // Map uniforms
-      newForm.uniforms = parsed.uniforms.map((u) => ({
-        id: Math.random().toString(36).slice(2, 10),
-        ...u,
-      }))
-
-      // Map inputs
-      newForm.inputs = parsed.inputs.map((i) => ({
-        id: Math.random().toString(36).slice(2, 10),
-        ...i,
-      }))
-
-      // Map outputs
-      newForm.outputs = parsed.outputs.length > 0
-        ? parsed.outputs.map((o) => ({
-            id: Math.random().toString(36).slice(2, 10),
-            ...o,
-          }))
-        : [createOutputRow()]
-
-      // Set provenance from resolved source metadata
-      if (resolved.sourceType !== 'glsl' && resolved.metadata?.url) {
-        newForm.sourceKind = parsed.sourceKind !== 'original' ? parsed.sourceKind : 'adapted'
-        if (newForm.sources.length === 0) {
-          const src = createSourceRow()
-          src.name = resolved.metadata.title ?? 'Source'
-          src.url = resolved.metadata.url
-          src.authorsText = resolved.metadata.author ?? ''
-          src.retrievedAt = new Date().toISOString().slice(0, 10)
-          newForm.sources = [src]
-        }
-      }
-
-      setForm(reconcile(newForm))
+      setParsed(result as AiParsedShader)
       setStep('review')
     } catch (e) {
       setParseError(e instanceof Error ? e.message : 'Failed to parse shader')
       setStep('input')
     }
-  }
-
-  const handleFormSubmit = async (event: SubmitEvent) => {
-    event.preventDefault()
-    await props.onSubmit(JSON.parse(JSON.stringify(form)) as SubmissionFormData)
   }
 
   return (
@@ -199,14 +158,14 @@ export default function AiSubmitWizard(props: AiSubmitWizardProps) {
         </SurfaceCard>
       </Show>
 
-      {/* Step 3: Review & Edit */}
+      {/* Step 3: Review (read-only) */}
       <Show when={step() === 'review'}>
         <SurfaceCard class="mb-4 p-4">
           <div class="flex items-center justify-between">
             <div>
-              <Kicker>Review & Edit</Kicker>
+              <Kicker>Review AI Result</Kicker>
               <p class="text-sm text-text-secondary">
-                AI has populated the fields below. Review, adjust as needed, then submit.
+                AI has analyzed the shader. Review the extracted metadata below.
               </p>
             </div>
             <button
@@ -214,7 +173,7 @@ export default function AiSubmitWizard(props: AiSubmitWizardProps) {
               class="rounded-full border border-surface-card-border bg-surface-secondary px-4 py-2 text-sm font-semibold text-text-secondary transition hover:text-text-primary"
               onClick={() => {
                 setStep('input')
-                setForm(reconcile(createDefaultFormData()))
+                setParsed(null)
               }}
             >
               Start over
@@ -223,177 +182,206 @@ export default function AiSubmitWizard(props: AiSubmitWizardProps) {
         </SurfaceCard>
 
         <div class="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <form onSubmit={handleFormSubmit}>
-            <SectionBlock>
-              <div class="grid gap-4 md:grid-cols-2">
-                <Field class="md:col-span-2" label="Shader name">
-                  <TextInput value={form.name} onInput={(v) => setForm('name', v)} />
-                </Field>
-                <Field label="Display name">
-                  <TextInput value={form.displayName} onInput={(v) => setForm('displayName', v)} />
-                </Field>
-                <Field label="Version">
-                  <TextInput value={form.version} onInput={(v) => setForm('version', v)} />
-                </Field>
-                <Field class="md:col-span-2" label="Summary">
-                  <TextInput value={form.summary} onInput={(v) => setForm('summary', v)} />
-                </Field>
-                <Field class="md:col-span-2" label="Description">
-                  <TextArea value={form.description} onInput={(v) => setForm('description', v)} rows={4} />
-                </Field>
-                <Field label="Author name">
-                  <TextInput value={form.authorName} onInput={(v) => setForm('authorName', v)} />
-                </Field>
-                <Field label="Author GitHub">
-                  <TextInput value={form.authorGithub} onInput={(v) => setForm('authorGithub', v)} />
-                </Field>
-                <Field label="License">
-                  <TextInput value={form.license} onInput={(v) => setForm('license', v)} />
-                </Field>
-                <Field label="Category">
-                  <TextInput value={form.category} onInput={(v) => setForm('category', v)} />
-                </Field>
-                <Field class="md:col-span-2" label="Tags">
-                  <TextInput value={form.tagsText} onInput={(v) => setForm('tagsText', v)} />
-                </Field>
-              </div>
-            </SectionBlock>
-
-            <SectionBlock title="Capability and compatibility">
-              <div class="grid gap-4 md:grid-cols-2">
-                <Field label="Pipeline">
-                  <SelectInput value={form.pipeline} onInput={(v) => setForm('pipeline', v as SubmissionFormData['pipeline'])} options={pipelineOptions} />
-                </Field>
-                <Field label="Stage">
-                  <SelectInput value={form.stage} onInput={(v) => setForm('stage', v as SubmissionFormData['stage'])} options={stageOptions} />
-                </Field>
-                <PillGroup class="md:col-span-2" label="Renderers" options={rendererOptions} selected={form.renderers} onToggle={(v) => setForm('renderers', toggleArrayValue(form.renderers, v as SubmissionFormData['renderers'][number]) as SubmissionFormData['renderers'])} />
-                <PillGroup class="md:col-span-2" label="Environments" options={environmentOptions} selected={form.environments} onToggle={(v) => setForm('environments', toggleArrayValue(form.environments, v as SubmissionFormData['environments'][number]) as SubmissionFormData['environments'])} />
-                <Field label="Three.js range">
-                  <TextInput value={form.threeRange} onInput={(v) => setForm('threeRange', v)} />
-                </Field>
-                <Field label="Material kind">
-                  <SelectInput value={form.material} onInput={(v) => setForm('material', v as SubmissionFormData['material'])} options={materialOptions} />
-                </Field>
-              </div>
-            </SectionBlock>
-
-            <SectionBlock title="Provenance" action={<button class="inline-flex items-center justify-center rounded-full border border-surface-card-border bg-surface-secondary px-4 py-2 text-sm font-semibold text-text-secondary shadow-sm transition hover:text-text-primary" type="button" onClick={() => setForm('sources', (rows) => [...rows, createSourceRow()])}>Add source</button>}>
-              <div class="grid gap-4 md:grid-cols-2">
-                <Field label="Source kind">
-                  <SelectInput value={form.sourceKind} onInput={(v) => setForm('sourceKind', v as SubmissionFormData['sourceKind'])} options={sourceKindOptions} />
-                </Field>
-                <Field class="md:col-span-2" label="Attribution summary">
-                  <TextInput value={form.attributionSummary} onInput={(v) => setForm('attributionSummary', v)} />
-                </Field>
-                <Field class="md:col-span-2" label="Required downstream notice">
-                  <TextInput value={form.requiredNotice} onInput={(v) => setForm('requiredNotice', v)} />
-                </Field>
-              </div>
-              <Show when={form.sources.length > 0}>
-                <div class="mt-4 grid gap-4">
-                  {form.sources.map((row, index) => (
-                    <SourceEditor row={row} onChange={(key, value) => setForm('sources', index, key, value as never)} onRemove={() => setForm('sources', form.sources.filter((c) => c.id !== row.id))} />
-                  ))}
-                </div>
-              </Show>
-            </SectionBlock>
-
-            <SectionBlock title="Shader files">
-              <div class="grid gap-4">
-                <Field label="Vertex shader">
-                  <TextArea value={form.vertexShader} onInput={(v) => setForm('vertexShader', v)} rows={8} monospace />
-                </Field>
-                <Field label="Fragment shader">
-                  <TextArea value={form.fragmentShader} onInput={(v) => setForm('fragmentShader', v)} rows={10} monospace />
-                </Field>
-                <Field label="Preview SVG">
-                  <TextArea value={form.previewSvg} onInput={(v) => setForm('previewSvg', v)} rows={6} monospace />
-                </Field>
-              </div>
-            </SectionBlock>
-
-            <SectionBlock title="Recipes">
-              <div class="grid gap-4">
-                <RecipeEditor label="Three.js recipe" recipe={form.threeRecipe} onToggle={(v) => setForm('threeRecipe', 'enabled', v)} onSummary={(v) => setForm('threeRecipe', 'summary', v)} onRequirementsToggle={(v) => setForm('threeRecipe', 'requirements', toggleArrayValue(form.threeRecipe.requirements, v as SubmissionFormData['threeRecipe']['requirements'][number]) as SubmissionFormData['threeRecipe']['requirements'])} onCode={(v) => setForm('threeRecipe', 'code', v)} />
-                <RecipeEditor label="React Three Fiber recipe" recipe={form.r3fRecipe} onToggle={(v) => setForm('r3fRecipe', 'enabled', v)} onSummary={(v) => setForm('r3fRecipe', 'summary', v)} onRequirementsToggle={(v) => setForm('r3fRecipe', 'requirements', toggleArrayValue(form.r3fRecipe.requirements, v as SubmissionFormData['r3fRecipe']['requirements'][number]) as SubmissionFormData['r3fRecipe']['requirements'])} onCode={(v) => setForm('r3fRecipe', 'code', v)} />
-              </div>
-            </SectionBlock>
-
-            <div class="mt-6">
-              <Show when={props.submitStatus}>
-                <p class="mb-3 rounded-xl border border-accent/30 bg-accent-dim/20 px-3 py-2 text-sm text-accent">
-                  {props.submitStatus}
-                </p>
-              </Show>
-              <Show when={props.submitError}>
-                <p class="mb-3 rounded-xl border border-danger/30 bg-danger-dim/20 px-3 py-2 text-sm text-danger">
-                  {props.submitError}
-                </p>
-              </Show>
-              <button
-                class="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-surface-primary transition hover:bg-accent/80 disabled:opacity-50"
-                disabled={props.submitting || !!previewState().error}
-                type="submit"
-              >
-                {props.submitting ? 'Saving draft...' : 'Save draft to submissions/'}
-              </button>
-            </div>
-          </form>
-
+          {/* Left column: read-only metadata */}
           <div class="space-y-4">
-            {/* Live shader preview */}
+            <SurfaceCard class="p-5">
+              <Kicker>Identity</Kicker>
+              <dl class="mt-3 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt class="font-medium text-text-muted">Name</dt>
+                  <dd class="text-text-primary">{parsed()?.name}</dd>
+                </div>
+                <div>
+                  <dt class="font-medium text-text-muted">Display name</dt>
+                  <dd class="text-text-primary">{parsed()?.displayName}</dd>
+                </div>
+                <div class="sm:col-span-2">
+                  <dt class="font-medium text-text-muted">Summary</dt>
+                  <dd class="text-text-primary">{parsed()?.summary}</dd>
+                </div>
+                <div class="sm:col-span-2">
+                  <dt class="font-medium text-text-muted">Description</dt>
+                  <dd class="text-text-primary">{parsed()?.description}</dd>
+                </div>
+                <div>
+                  <dt class="font-medium text-text-muted">Author</dt>
+                  <dd class="text-text-primary">{parsed()?.authorName}</dd>
+                </div>
+                <div>
+                  <dt class="font-medium text-text-muted">Category</dt>
+                  <dd class="text-text-primary">{parsed()?.category}</dd>
+                </div>
+                <div class="sm:col-span-2">
+                  <dt class="font-medium text-text-muted">Tags</dt>
+                  <dd class="text-text-primary">{parsed()?.tagsText}</dd>
+                </div>
+              </dl>
+            </SurfaceCard>
+
+            <SurfaceCard class="p-5">
+              <Kicker>Capability and compatibility</Kicker>
+              <dl class="mt-3 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt class="font-medium text-text-muted">Pipeline</dt>
+                  <dd class="text-text-primary">{parsed()?.pipeline}</dd>
+                </div>
+                <div>
+                  <dt class="font-medium text-text-muted">Stage</dt>
+                  <dd class="text-text-primary">{parsed()?.stage}</dd>
+                </div>
+                <div>
+                  <dt class="font-medium text-text-muted">Material</dt>
+                  <dd class="text-text-primary">{parsed()?.material}</dd>
+                </div>
+                <div>
+                  <dt class="font-medium text-text-muted">Source kind</dt>
+                  <dd class="text-text-primary">{parsed()?.sourceKind}</dd>
+                </div>
+                <div class="sm:col-span-2">
+                  <dt class="font-medium text-text-muted">Requires</dt>
+                  <dd class="flex flex-wrap gap-1.5">
+                    <For each={parsed()?.capabilityRequires}>
+                      {(cap) => (
+                        <span class="inline-flex rounded-full border border-surface-card-border bg-surface-tertiary px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+                          {cap}
+                        </span>
+                      )}
+                    </For>
+                  </dd>
+                </div>
+                <div class="sm:col-span-2">
+                  <dt class="font-medium text-text-muted">Outputs</dt>
+                  <dd class="flex flex-wrap gap-1.5">
+                    <For each={parsed()?.capabilityOutputs}>
+                      {(cap) => (
+                        <span class="inline-flex rounded-full border border-surface-card-border bg-surface-tertiary px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+                          {cap}
+                        </span>
+                      )}
+                    </For>
+                  </dd>
+                </div>
+              </dl>
+            </SurfaceCard>
+
+            <Show when={parsed()?.uniforms && parsed()!.uniforms.length > 0}>
+              <SurfaceCard class="p-5">
+                <Kicker>Uniforms</Kicker>
+                <div class="mt-3 space-y-2">
+                  <For each={parsed()?.uniforms}>
+                    {(u) => (
+                      <div class="rounded-xl border border-surface-card-border bg-surface-secondary px-3 py-2 text-sm">
+                        <span class="font-mono font-medium text-accent">{u.name}</span>
+                        <span class="ml-2 text-text-muted">({u.type})</span>
+                        <span class="ml-2 text-text-secondary">{u.description}</span>
+                        <Show when={u.defaultValue}>
+                          <span class="ml-2 text-text-muted">default: {u.defaultValue}</span>
+                        </Show>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </SurfaceCard>
+            </Show>
+
+            <Show when={parsed()?.inputs && parsed()!.inputs.length > 0}>
+              <SurfaceCard class="p-5">
+                <Kicker>Inputs</Kicker>
+                <div class="mt-3 space-y-2">
+                  <For each={parsed()?.inputs}>
+                    {(i) => (
+                      <div class="rounded-xl border border-surface-card-border bg-surface-secondary px-3 py-2 text-sm">
+                        <span class="font-mono font-medium text-accent">{i.name}</span>
+                        <span class="ml-2 text-text-muted">({i.kind})</span>
+                        <span class="ml-2 text-text-secondary">{i.description}</span>
+                        <Show when={i.required}>
+                          <span class="ml-2 text-xs font-semibold text-accent">required</span>
+                        </Show>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </SurfaceCard>
+            </Show>
+
+            <Show when={parsed()?.outputs && parsed()!.outputs.length > 0}>
+              <SurfaceCard class="p-5">
+                <Kicker>Outputs</Kicker>
+                <div class="mt-3 space-y-2">
+                  <For each={parsed()?.outputs}>
+                    {(o) => (
+                      <div class="rounded-xl border border-surface-card-border bg-surface-secondary px-3 py-2 text-sm">
+                        <span class="font-mono font-medium text-accent">{o.name}</span>
+                        <span class="ml-2 text-text-muted">({o.kind})</span>
+                        <span class="ml-2 text-text-secondary">{o.description}</span>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </SurfaceCard>
+            </Show>
+
+            <SurfaceCard class="p-5">
+              <Kicker>Provenance</Kicker>
+              <dl class="mt-3 grid gap-y-3 text-sm">
+                <div>
+                  <dt class="font-medium text-text-muted">Source kind</dt>
+                  <dd class="text-text-primary">{parsed()?.sourceKind}</dd>
+                </div>
+                <div>
+                  <dt class="font-medium text-text-muted">Attribution</dt>
+                  <dd class="text-text-primary">{parsed()?.attributionSummary}</dd>
+                </div>
+              </dl>
+            </SurfaceCard>
+
+            <SurfaceCard class="p-5">
+              <Kicker>Shader code</Kicker>
+              <div class="mt-3 space-y-4">
+                <div>
+                  <h4 class="mb-1 text-xs font-semibold text-text-muted">Vertex shader</h4>
+                  <pre class="max-h-48 overflow-auto rounded-xl bg-surface-primary p-3 font-mono text-xs leading-5 text-text-secondary">
+                    {parsed()?.vertexShader}
+                  </pre>
+                </div>
+                <div>
+                  <h4 class="mb-1 text-xs font-semibold text-text-muted">Fragment shader</h4>
+                  <pre class="max-h-64 overflow-auto rounded-xl bg-surface-primary p-3 font-mono text-xs leading-5 text-text-secondary">
+                    {parsed()?.fragmentShader}
+                  </pre>
+                </div>
+              </div>
+            </SurfaceCard>
+
+            {/* Create PR button (placeholder for Task 9) */}
+            <div class="pt-2">
+              <button
+                type="button"
+                class="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-surface-primary opacity-50 cursor-not-allowed"
+                disabled
+                title="GitHub PR creation will be enabled in a future update."
+              >
+                Create Pull Request (coming soon)
+              </button>
+              <p class="mt-2 text-xs text-text-muted">
+                PR creation will be available once GitHub integration is complete.
+              </p>
+            </div>
+          </div>
+
+          {/* Right column: live preview */}
+          <div class="space-y-4">
             <SurfaceCard class="p-4">
               <h3 class="mb-3 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-accent">
                 Live Preview
               </h3>
               <ShaderPreviewCanvas
-                vertexSource={form.vertexShader}
-                fragmentSource={form.fragmentShader}
-                uniforms={form.uniforms.map((u) => ({
-                  ...u,
-                  defaultValue: (() => {
-                    try {
-                      if (u.type === 'float' || u.type === 'int') return Number(u.defaultValue) || 0
-                      if (u.type === 'bool') return u.defaultValue === 'true'
-                      if (['vec2', 'vec3', 'vec4', 'color'].includes(u.type)) {
-                        return u.defaultValue.split(',').map((v) => Number(v.trim()) || 0)
-                      }
-                      return u.defaultValue || null
-                    } catch {
-                      return 0
-                    }
-                  })(),
-                  min: u.min ? Number(u.min) : undefined,
-                  max: u.max ? Number(u.max) : undefined,
-                }))}
+                vertexSource={parsed()?.vertexShader ?? ''}
+                fragmentSource={parsed()?.fragmentShader ?? ''}
+                uniforms={previewUniforms()}
                 uniformOverrides={{}}
-                pipeline={form.pipeline}
+                pipeline={parsed()?.pipeline ?? 'surface'}
               />
-            </SurfaceCard>
-
-            {/* Manifest preview */}
-            <SurfaceCard class="p-4">
-              <div class="mb-3 flex items-center justify-between">
-                <h3 class="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-accent">
-                  Manifest Preview
-                </h3>
-                <span class="inline-flex items-center rounded-full border border-surface-card-border bg-surface-tertiary px-3 py-1 text-xs font-semibold text-text-secondary">
-                  shader.json
-                </span>
-              </div>
-              <Show
-                when={!previewState().error}
-                fallback={
-                  <p class="rounded-xl border border-danger/30 bg-danger-dim/20 px-3 py-2 text-sm text-danger">
-                    {previewState().error}
-                  </p>
-                }
-              >
-                <pre class="max-h-[32rem] overflow-auto rounded-2xl bg-surface-primary p-4 font-mono text-xs leading-6 text-accent/90">
-                  {previewState().manifest}
-                </pre>
-              </Show>
             </SurfaceCard>
           </div>
         </div>

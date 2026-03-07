@@ -1,10 +1,6 @@
 import { createFileRoute } from '@tanstack/solid-router'
 import { createServerFn, useServerFn } from '@tanstack/solid-start'
 import { Show, createMemo, createSignal, onMount } from 'solid-js'
-import {
-  buildDraftArtifact,
-  type SubmissionFormData,
-} from '../lib/submission-draft'
 import { authClient } from '../lib/auth-client'
 import SurfaceCard from '../components/ui/SurfaceCard'
 import Kicker from '../components/ui/Kicker'
@@ -20,7 +16,6 @@ type LibraryEntry = {
 }
 
 type LibrarySnapshot = {
-  drafts: LibraryEntry[]
   githubAuthEnabled: boolean
   shaders: LibraryEntry[]
 }
@@ -74,71 +69,11 @@ const listLibrarySnapshot = createServerFn({ method: 'GET' }).handler(
     await auth.api.getSession({ headers: getRequestHeaders() })
 
     return {
-      drafts: await readEntries(join(repoRoot, 'submissions')),
       githubAuthEnabled,
       shaders: await readEntries(join(repoRoot, 'shaders')),
     }
   },
 )
-
-const saveDraftSubmission = createServerFn({ method: 'POST' })
-  .inputValidator((input: SubmissionFormData) => input)
-  .handler(async ({ data }) => {
-    const { access, mkdir, rm, writeFile } = await import('node:fs/promises')
-    const { join, resolve } = await import('node:path')
-    const { getRequestHeaders } = await import('@tanstack/solid-start/server')
-    const { auth, ensureAuthReady } = await import('../lib/auth')
-    const { validateShaderManifestFile } = await import(
-      '../../../../packages/schema/src/index.ts'
-    )
-
-    const artifact = buildDraftArtifact(data)
-    const repoRoot = resolve(process.cwd(), '../..')
-    const submissionsRoot = join(repoRoot, 'submissions')
-    const draftRoot = join(submissionsRoot, artifact.manifest.name as string)
-    const draftExists = await access(draftRoot)
-      .then(() => true)
-      .catch(() => false)
-
-    if (draftExists) {
-      throw new Error(`A draft named "${artifact.manifest.name}" already exists.`)
-    }
-
-    await ensureAuthReady()
-
-    const session = await auth.api.getSession({
-      headers: getRequestHeaders(),
-    })
-
-    if (!session?.user) {
-      throw new Error('Sign in with GitHub before submitting a shader draft.')
-    }
-
-    await mkdir(submissionsRoot, { recursive: true })
-
-    try {
-      await mkdir(join(draftRoot, 'recipes'), { recursive: true })
-
-      await Promise.all(
-        Object.entries(artifact.files).map(([relativePath, content]) =>
-          writeFile(join(draftRoot, relativePath), content, 'utf8'),
-        ),
-      )
-
-      await writeFile(
-        join(draftRoot, 'shader.json'),
-        JSON.stringify(artifact.manifest, null, 2),
-        'utf8',
-      )
-
-      validateShaderManifestFile(join(draftRoot, 'shader.json'))
-
-      return { path: `submissions/${artifact.manifest.name}` }
-    } catch (error) {
-      await rm(draftRoot, { recursive: true, force: true })
-      throw error
-    }
-  })
 
 export const Route = createFileRoute('/submit')({
   component: SubmitPage,
@@ -146,17 +81,13 @@ export const Route = createFileRoute('/submit')({
 
 function SubmitPage() {
   const fetchLibrarySnapshot = useServerFn(listLibrarySnapshot)
-  const submitDraft = useServerFn(saveDraftSubmission)
   const sessionState = authClient.useSession()
   const [library, setLibrary] = createSignal<LibrarySnapshot>({
-    drafts: [],
     githubAuthEnabled: false,
     shaders: [],
   })
   const [loadingLibrary, setLoadingLibrary] = createSignal(true)
   const [submitError, setSubmitError] = createSignal('')
-  const [submitStatus, setSubmitStatus] = createSignal('')
-  const [submitting, setSubmitting] = createSignal(false)
 
   const session = createMemo(() => sessionState().data)
   const authReady = createMemo(() => library().githubAuthEnabled)
@@ -192,25 +123,8 @@ function SubmitPage() {
 
   const handleSignOut = async () => {
     await authClient.signOut()
-    setSubmitStatus('')
     setSubmitError('')
     await refreshLibrary()
-  }
-
-  const handleSubmit = async (formData: SubmissionFormData) => {
-    setSubmitError('')
-    setSubmitStatus('')
-    setSubmitting(true)
-
-    try {
-      const result = await submitDraft({ data: formData })
-      setSubmitStatus(`Draft saved to ${result.path}`)
-      await refreshLibrary()
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : String(error))
-    } finally {
-      setSubmitting(false)
-    }
   }
 
   return (
@@ -224,18 +138,22 @@ function SubmitPage() {
             </h1>
             <p class="m-0 text-base leading-7 text-text-secondary sm:text-lg">
               Drop in raw GLSL, a Shadertoy link, or a GitHub gist. AI analyzes the
-              shader, extracts metadata, and generates the manifest. You review, tweak,
-              and submit.
+              shader, extracts metadata, and generates the manifest. You review and
+              create a pull request.
             </p>
           </div>
           <div class="rounded-2xl border border-surface-card-border bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
             <div>Canonical shaders: {library().shaders.length}</div>
-            <div>Draft queue: {library().drafts.length}</div>
           </div>
         </div>
       </SurfaceCard>
 
       <section class="mt-5">
+        <Show when={submitError()}>
+          <div class="mb-4 rounded-2xl border border-danger/30 bg-danger-dim/20 p-4 text-sm text-danger">
+            {submitError()}
+          </div>
+        </Show>
         <Show
           when={authReady()}
           fallback={
@@ -253,10 +171,10 @@ function SubmitPage() {
               <div class="flex flex-col gap-4 rounded-2xl border border-surface-card-border bg-surface-card p-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p class="m-0 text-sm font-semibold text-text-primary">
-                    Sign in with GitHub to save a shader draft.
+                    Sign in with GitHub to submit a shader.
                   </p>
                   <p class="mt-1 mb-0 text-sm text-text-secondary">
-                    The server rejects draft writes without a live Better Auth session.
+                    Authentication is required to create pull requests.
                   </p>
                 </div>
                 <button
@@ -275,7 +193,7 @@ function SubmitPage() {
                   Signed in as {session()?.user.name || session()?.user.email}
                 </p>
                 <p class="mt-1 mb-0 text-sm text-text-secondary">
-                  Your session can now create validated draft folders for review.
+                  You can now parse shaders and review AI results.
                 </p>
               </div>
               <button
@@ -296,7 +214,7 @@ function SubmitPage() {
             <div>
               <Kicker>Library Snapshot</Kicker>
               <h2 class="m-0 text-xl font-semibold text-text-primary">
-                Current corpus and pending drafts
+                Current corpus
               </h2>
             </div>
             <button
@@ -312,30 +230,17 @@ function SubmitPage() {
             when={!loadingLibrary()}
             fallback={<p class="m-0 text-sm text-text-muted">Loading library snapshot...</p>}
           >
-            <div class="space-y-5">
-              <LibraryList
-                entries={library().shaders}
-                emptyMessage="No canonical shaders found yet."
-                title="Canonical shaders"
-                valueKey="category"
-              />
-              <LibraryList
-                entries={library().drafts}
-                emptyMessage="No draft submissions yet."
-                title="Draft submissions"
-                valueKey="sourceKind"
-              />
-            </div>
+            <LibraryList
+              entries={library().shaders}
+              emptyMessage="No canonical shaders found yet."
+              title="Canonical shaders"
+              valueKey="category"
+            />
           </Show>
         </SurfaceCard>
 
         <div>
-          <AiSubmitWizard
-            onSubmit={handleSubmit}
-            submitting={submitting()}
-            submitError={submitError()}
-            submitStatus={submitStatus()}
-          />
+          <AiSubmitWizard />
         </div>
       </section>
     </main>

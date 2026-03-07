@@ -31,7 +31,7 @@ function About() {
           <div class="rounded-xl border border-surface-card-border bg-surface-card p-4">
             <h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">Submission workflow</h2>
             <p class="text-sm text-text-secondary">
-              Drafts land in <code class="rounded bg-surface-tertiary px-1 py-0.5 text-xs text-accent">submissions/</code> first.
+              Paste GLSL or a link, AI extracts metadata, and you create a pull request.
               The canonical library only changes through reviewed PRs.
             </p>
           </div>
