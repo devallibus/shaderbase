@@ -1,42 +1,83 @@
 # ShaderBase
 
-ShaderBase is an agent-first shader registry for Three.js ecosystems. The repository is designed so an agent can search a shader, inspect its compatibility and provenance, and retrieve an integration recipe without depending on a hosted database.
+ShaderBase is an agent-first shader registry for Three.js ecosystems. Git-backed manifests and recipes are the canonical product. Search indexes, CLI tools, and MCP servers are derived artifacts.
 
-The north star is simple: git-backed manifests and recipes are the canonical product. Search indexes, SDK APIs, and MCP tools are all derived from what lives here.
+## Architecture
 
-## Current Foundation
+```
+shaders/              Canonical shader corpus (source of truth)
+packages/
+  schema/             Zod-based manifest validation
+  cli/                CLI: npx shaderbase search/add (shadcn-style)
+  mcp/                MCP server for AI agent integration (Cloudflare Worker)
+scripts/
+  build-registry.ts   Generates static registry JSON from corpus
+  validate-shaders.ts Validates all shader manifests
+apps/web/             SolidJS web app (browse, search, AI submit)
+```
 
-- Bun workspace with a real `@shaderbase/schema` package
-- Versioned shader manifest contract with enforceable provenance, compatibility, capability, and recipe metadata
-- Three seed shaders, including sourced examples with explicit upstream attribution
-- Solid-powered TanStack Start intake app in `apps/web` that writes validated drafts into `submissions/`
-- Repo-level validation script and CI workflow so git stays honest
+### How it works
+
+1. **Shaders live in git** — each shader has `shader.json`, GLSL source, and integration recipes
+2. **CI builds the registry** — static JSON index + per-shader bundles deployed to CDN
+3. **Agents use MCP** — `search_shaders` and `get_shader` tools via remote MCP server
+4. **Humans use the CLI** — `npx shaderbase add gradient-radial --env r3f`
+5. **Files are copied into your project** (shadcn-style) — you own the code
 
 ## Quick Start
 
 ```bash
 bun install
-bun run check
-bun run dev:web
+bun run check        # test + typecheck + validate + build
+bun run dev:web      # dev server on :3000
+bun run build:registry  # generate dist/registry/
 ```
 
-For GitHub sign-in in the intake app, copy [`.env.example`](C:/Users/Usuario/Documents/Developer/GitHub/shaderbase/apps/web/.env.example) to `apps/web/.env` and configure the GitHub OAuth callback URL as `http://localhost:3000/api/auth/callback/github`.
+## Using ShaderBase
+
+### CLI
+
+```bash
+# Search for shaders
+npx shaderbase search --query "gradient"
+npx shaderbase search --pipeline postprocessing --env r3f
+
+# Add a shader to your project
+npx shaderbase add gradient-radial --env r3f
+npx shaderbase add gradient-radial --env three --dir src/shaders
+```
+
+### MCP (for AI agents)
+
+Add to your Claude config:
+```json
+{
+  "mcpServers": {
+    "shaderbase": {
+      "url": "https://mcp.shaderbase.dev/sse"
+    }
+  }
+}
+```
+
+Tools: `search_shaders(query, category, pipeline, environment, tags)` and `get_shader(name, environment)`
 
 ## Repository Map
 
-- `packages/schema` validates shader manifests and referenced files
-- `scripts/validate-shaders.ts` checks every shader entry under `shaders/`
-- `shaders/` contains the canonical corpus
-- `submissions/` is the website intake queue for draft entries
-- `apps/web` is the contributor-facing intake app
-- `docs/git-contract.md` captures the source-of-truth rules for the project
-- `CONTRIBUTING.md` defines the provenance and attribution bar for new additions
+| Path | Purpose |
+|------|---------|
+| `shaders/` | Canonical shader corpus |
+| `packages/schema/` | Zod manifest validation + types |
+| `packages/cli/` | CLI package (`shaderbase` on npm) |
+| `packages/mcp/` | MCP server (Cloudflare Worker) |
+| `scripts/` | Build and validation scripts |
+| `apps/web/` | Web app (browse, search, AI submit) |
+| `docs/` | Git contract, plans |
 
-## Product Direction
+## Contributing
 
-- Canonical manifests and recipes live in git
-- Local-first search and SDK/MCP layers are generated from the corpus
-- Human-facing UI is downstream of the agent contract, not the other way around
-- Attribution is part of the product contract, not cleanup work after import
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the provenance bar and submission checklist.
 
-The GitHub planning work still matters, but the repo now carries the rationale that future commits need in order to stay aligned.
+Submissions can be made via:
+- The web app at `/submit` (AI parses your GLSL, creates a PR)
+- Direct pull request to the `shaders/` directory

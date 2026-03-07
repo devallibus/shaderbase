@@ -14,9 +14,10 @@ If an agent or package needs extra metadata, that metadata should be added to th
 
 ## Derived Artifacts
 
-- Search indexes
-- SDK lookup tables
-- MCP responses
+- Static registry JSON (`dist/registry/`) — built by CI from `shaders/*/`, deployed to CDN
+- CLI package (`shaderbase` on npm) — searches registry, copies files into projects
+- MCP server responses — reads from registry, serves to AI agents
+- Web app shader listings — reads from filesystem or registry
 - Generated docs and galleries
 
 Derived artifacts may be cached or published elsewhere, but they are disposable. They must always be rebuildable from git.
@@ -31,9 +32,10 @@ Derived artifacts may be cached or published elsewhere, but they are disposable.
 
 ## Quality Gates
 
-- `bun test` protects the schema contract.
+- `bun test` protects the schema, CLI, MCP, and registry contracts (25+ tests).
 - `bun run validate:shaders` protects the corpus contract.
-- CI runs both checks on every push to `master` and every pull request.
+- `bun run build:registry` verifies registry generation from the corpus.
+- CI runs all checks on every push to `master` and every pull request.
 
 ## Working Principle
 
