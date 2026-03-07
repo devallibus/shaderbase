@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "build:registry": "node --experimental-strip-types scripts/build-registry.ts",
     "build:web": "cd apps/web && bun run build",
     "check": "bun run test && bun run typecheck && bun run validate:shaders && bun run build:web",
     "dev:web": "cd apps/web && bun run dev",
