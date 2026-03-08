@@ -11,7 +11,9 @@ import { nitro } from 'nitro/vite'
 export default defineConfig({
   plugins: [
     devtools(),
-    nitro(),
+    nitro({
+      preset: process.env.NITRO_PRESET || 'node-server',
+    }),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({
       projects: ['./tsconfig.json'],

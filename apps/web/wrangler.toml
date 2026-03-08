@@ -1,6 +1,9 @@
 name = "shaderbase-web"
 compatibility_date = "2026-03-01"
 
+[vars]
+REGISTRY_URL = "https://shaderbase-registry.pages.dev"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "shaderbase-reviews"
