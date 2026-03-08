@@ -176,11 +176,31 @@ export default function AiSubmitWizard() {
         fragment: 'fragment.glsl',
         includes: [],
       },
+      recipes: [
+        {
+          target: 'three',
+          path: 'recipes/three.ts',
+          exportName: `create${data.displayName.replace(/\s+/g, '')}Material`,
+          summary: `Create a ShaderMaterial for ${data.displayName} in vanilla Three.js.`,
+          placeholders: [],
+          requirements: ['three-scene', 'mesh'],
+        },
+      ],
+      preview: {
+        path: 'preview.svg',
+        format: 'svg',
+        width: 512,
+        height: 512,
+        deterministic: true,
+      },
       provenance: {
         sourceKind: data.sourceKind,
         sources: [],
         attribution: {
           summary: data.attributionSummary,
+          ...(data.sourceKind !== 'original'
+            ? { requiredNotice: data.attributionSummary }
+            : {}),
         },
       },
     }
@@ -196,10 +216,31 @@ export default function AiSubmitWizard() {
 
     try {
       const manifest = buildManifest(data)
-      const recipes: Record<string, { code: string; fileName: string }> = {}
+      const exportName = `create${data.displayName.replace(/\s+/g, '')}Material`
+      const recipes: Record<string, { code: string; fileName: string }> = {
+        three: {
+          fileName: 'recipes/three.ts',
+          code: [
+            `import { ShaderMaterial } from "three";`,
+            ``,
+            `// TODO: Configure uniforms and customize for your project`,
+            `export function ${exportName}() {`,
+            `  return new ShaderMaterial({`,
+            `    vertexShader: "", // Load from vertex.glsl`,
+            `    fragmentShader: "", // Load from fragment.glsl`,
+            `    uniforms: {},`,
+            `  });`,
+            `}`,
+          ].join('\n'),
+        },
+      }
 
-      // Currently the AI parse doesn't generate recipe code, but this is
-      // ready for when it does. For now, recipes will be empty.
+      const previewSvg = [
+        '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">',
+        '  <rect width="512" height="512" fill="#1a1a2e"/>',
+        `  <text x="256" y="256" text-anchor="middle" fill="#e0e0e0" font-size="24">${data.displayName}</text>`,
+        '</svg>',
+      ].join('\n')
 
       const result = await submitPR({
         data: {
@@ -208,6 +249,7 @@ export default function AiSubmitWizard() {
           vertexSource: data.vertexShader,
           fragmentSource: data.fragmentShader,
           recipes,
+          previewSvg,
         },
       })
 

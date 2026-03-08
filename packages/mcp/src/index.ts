@@ -1,14 +1,6 @@
 // ---------------------------------------------------------------------------
 // ShaderBase MCP Server — Cloudflare Worker
 // ---------------------------------------------------------------------------
-//
-// Exposes search_shaders and get_shader tool metadata over HTTP.
-// Full MCP protocol (SSE transport, @modelcontextprotocol/sdk) will be wired
-// in a future iteration. For now this serves:
-//   /health  → health check
-//   /tools   → MCP tool listing with input schemas
-//   *        → informational text
-// ---------------------------------------------------------------------------
 
 import { handleSearchShaders, handleGetShader } from "./handlers.ts";
 
@@ -16,7 +8,7 @@ interface Env {
   REGISTRY_URL?: string;
 }
 
-const DEFAULT_REGISTRY_URL = "https://registry.shaderbase.dev";
+const DEFAULT_REGISTRY_URL = "https://shaderbase-registry.pages.dev";
 
 const TOOLS = [
   {
@@ -79,7 +71,10 @@ const TOOLS = [
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    },
   });
 }
 
@@ -87,6 +82,17 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const registryUrl = env.REGISTRY_URL ?? DEFAULT_REGISTRY_URL;
+
+    // CORS preflight
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+    }
 
     // Health check
     if (url.pathname === "/health") {
@@ -98,15 +104,52 @@ export default {
       return jsonResponse({ tools: TOOLS });
     }
 
+    // Execute search_shaders
+    if (url.pathname === "/search_shaders") {
+      try {
+        const params = request.method === "POST"
+          ? (await request.json()) as Record<string, unknown>
+          : Object.fromEntries(url.searchParams);
+        const results = await handleSearchShaders(
+          params as { query?: string; category?: string; pipeline?: string; environment?: string; tags?: string[] },
+          registryUrl,
+        );
+        return jsonResponse(results);
+      } catch (error) {
+        return jsonResponse({ error: error instanceof Error ? error.message : "Search failed" }, 500);
+      }
+    }
+
+    // Execute get_shader
+    if (url.pathname === "/get_shader") {
+      try {
+        const params = request.method === "POST"
+          ? (await request.json()) as Record<string, unknown>
+          : Object.fromEntries(url.searchParams);
+        if (!params.name || typeof params.name !== "string") {
+          return jsonResponse({ error: "Missing required parameter: name" }, 400);
+        }
+        const result = await handleGetShader(
+          params as { name: string; environment?: string },
+          registryUrl,
+        );
+        return jsonResponse(result);
+      } catch (error) {
+        return jsonResponse({ error: error instanceof Error ? error.message : "Get shader failed" }, 500);
+      }
+    }
+
     // Default informational response
     return jsonResponse({
       name: "@shaderbase/mcp",
       version: "0.1.0",
       description:
-        "ShaderBase MCP Server — exposes search_shaders and get_shader tools for AI agents.",
+        "ShaderBase MCP Server — search and retrieve Three.js shaders for AI agents.",
       endpoints: {
         "/health": "Health check",
         "/tools": "List available MCP tools and their input schemas",
+        "/search_shaders": "Execute search_shaders tool (GET with query params or POST with JSON body)",
+        "/get_shader": "Execute get_shader tool (GET with ?name=... or POST with JSON body)",
       },
     });
   },

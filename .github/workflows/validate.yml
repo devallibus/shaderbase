@@ -29,6 +29,9 @@ jobs:
       - name: Run Tests
         run: bun run test
 
+      - name: Type Check
+        run: bun run typecheck
+
       - name: Validate Shader Manifests
         run: bun run validate:shaders
 

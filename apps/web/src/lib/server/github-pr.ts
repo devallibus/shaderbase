@@ -88,7 +88,14 @@ async function branchExists(
 
 export const createShaderPR = createServerFn({ method: 'POST' })
   .inputValidator((input: CreateShaderPRInput) => input)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, request }) => {
+    // Validate the user is authenticated
+    const { auth } = await import('../auth')
+    const session = await auth.api.getSession({ headers: request?.headers ?? new Headers() })
+    if (!session?.user) {
+      throw new Error('You must be signed in to create a pull request.')
+    }
+
     const token = process.env.GITHUB_TOKEN
     if (!token) {
       throw new Error(
@@ -115,8 +122,12 @@ export const createShaderPR = createServerFn({ method: 'POST' })
       )
     }
 
-    // 1. Get latest commit SHA on master
-    const baseSha = await getLatestCommitSha(opts, 'master')
+    // 1. Get latest commit SHA on master, then resolve its tree SHA
+    const baseCommitSha = await getLatestCommitSha(opts, 'master')
+    const commitData = (await githubApi(opts, `/git/commits/${baseCommitSha}`, 'GET')) as {
+      tree: { sha: string }
+    }
+    const baseTreeSha = commitData.tree.sha
 
     // 2. Create blobs for each file
     const treeEntries: GitHubTreeEntry[] = []
@@ -175,7 +186,7 @@ export const createShaderPR = createServerFn({ method: 'POST' })
 
     // 3. Create a tree with all files
     const tree = (await githubApi(opts, '/git/trees', 'POST', {
-      base_tree: baseSha,
+      base_tree: baseTreeSha,
       tree: treeEntries,
     })) as { sha: string }
 
@@ -183,7 +194,7 @@ export const createShaderPR = createServerFn({ method: 'POST' })
     const commit = (await githubApi(opts, '/git/commits', 'POST', {
       message: `feat: add shader "${shaderName}"\n\nSubmitted via ShaderBase web app.`,
       tree: tree.sha,
-      parents: [baseSha],
+      parents: [baseCommitSha],
     })) as { sha: string }
 
     // 5. Create the branch

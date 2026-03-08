@@ -18,7 +18,7 @@ export async function handleSearchShaders(
     tags?: string[];
   },
   registryUrl: string,
-  fetchFn: typeof fetch = fetch,
+  fetchFn: (input: string | URL | Request) => Promise<Response> = fetch,
 ): Promise<RegistryIndexEntry[]> {
   const response = await fetchFn(`${registryUrl}/index.json`);
   if (!response.ok) {
@@ -37,7 +37,7 @@ export async function handleSearchShaders(
 export async function handleGetShader(
   params: { name: string; environment?: string },
   registryUrl: string,
-  fetchFn: typeof fetch = fetch,
+  fetchFn: (input: string | URL | Request) => Promise<Response> = fetch,
 ): Promise<RegistryShaderBundle> {
   const response = await fetchFn(`${registryUrl}/shaders/${params.name}.json`);
   if (!response.ok) {

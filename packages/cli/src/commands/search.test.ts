@@ -81,28 +81,28 @@ runTest("filters by text query matching name", () => {
   const index = makeMockIndex();
   const results = searchShaders(index, { query: "gradient" });
   assert.equal(results.length, 1);
-  assert.equal(results[0].name, "gradient-radial");
+  assert.equal(results[0]!.name, "gradient-radial");
 });
 
 runTest("filters by text query matching summary", () => {
   const index = makeMockIndex();
   const results = searchShaders(index, { query: "vignette" });
   assert.equal(results.length, 1);
-  assert.equal(results[0].name, "vignette-postprocess");
+  assert.equal(results[0]!.name, "vignette-postprocess");
 });
 
 runTest("filters by category", () => {
   const index = makeMockIndex();
   const results = searchShaders(index, { category: "geometry" });
   assert.equal(results.length, 1);
-  assert.equal(results[0].name, "simplex-displacement");
+  assert.equal(results[0]!.name, "simplex-displacement");
 });
 
 runTest("filters by pipeline", () => {
   const index = makeMockIndex();
   const results = searchShaders(index, { pipeline: "postprocessing" });
   assert.equal(results.length, 1);
-  assert.equal(results[0].name, "vignette-postprocess");
+  assert.equal(results[0]!.name, "vignette-postprocess");
 });
 
 runTest("filters by environment", () => {
@@ -115,14 +115,14 @@ runTest("filters by tag", () => {
   const index = makeMockIndex();
   const results = searchShaders(index, { tags: ["noise"] });
   assert.equal(results.length, 1);
-  assert.equal(results[0].name, "simplex-displacement");
+  assert.equal(results[0]!.name, "simplex-displacement");
 });
 
 runTest("combines multiple filters", () => {
   const index = makeMockIndex();
   const results = searchShaders(index, { query: "gradient", pipeline: "surface" });
   assert.equal(results.length, 1);
-  assert.equal(results[0].name, "gradient-radial");
+  assert.equal(results[0]!.name, "gradient-radial");
 });
 
 runTest("returns empty for no matches", () => {
