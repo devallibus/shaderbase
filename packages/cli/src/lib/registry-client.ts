@@ -1,6 +1,6 @@
 import type { RegistryIndex, RegistryShaderBundle } from "../registry-types.ts";
 
-const DEFAULT_REGISTRY_URL = "https://registry.shaderbase.dev";
+const DEFAULT_REGISTRY_URL = "https://registry.shaderbase.com";
 
 export function getRegistryUrl(): string {
   return process.env.SHADERBASE_REGISTRY_URL ?? DEFAULT_REGISTRY_URL;

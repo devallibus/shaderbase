@@ -8,7 +8,7 @@ ShaderBase is an agent-first shader registry for Three.js ecosystems. Git-backed
 shaders/              Canonical shader corpus (source of truth)
 packages/
   schema/             Zod-based manifest validation
-  cli/                CLI: npx shaderbase search/add (shadcn-style)
+  cli/                CLI: npx @shaderbase/cli search/add (shadcn-style)
   mcp/                MCP server for AI agent integration (Cloudflare Worker)
 scripts/
   build-registry.ts   Generates static registry JSON from corpus
@@ -21,7 +21,7 @@ apps/web/             SolidJS web app (browse, search, AI submit)
 1. **Shaders live in git** — each shader has `shader.json`, GLSL source, and integration recipes
 2. **CI builds the registry** — static JSON index + per-shader bundles deployed to CDN
 3. **Agents use MCP** — `search_shaders` and `get_shader` tools via remote MCP server
-4. **Humans use the CLI** — `npx shaderbase add gradient-radial --env r3f`
+4. **Humans use the CLI** — `npx @shaderbase/cli add gradient-radial --env r3f`
 5. **Files are copied into your project** (shadcn-style) — you own the code
 
 ## Quick Start
@@ -39,12 +39,12 @@ bun run build:registry  # generate dist/registry/
 
 ```bash
 # Search for shaders
-npx shaderbase search --query "gradient"
-npx shaderbase search --pipeline postprocessing --env r3f
+npx @shaderbase/cli search --query "gradient"
+npx @shaderbase/cli search --pipeline postprocessing --env r3f
 
 # Add a shader to your project
-npx shaderbase add gradient-radial --env r3f
-npx shaderbase add gradient-radial --env three --dir src/shaders
+npx @shaderbase/cli add gradient-radial --env r3f
+npx @shaderbase/cli add gradient-radial --env three --dir src/shaders
 ```
 
 ### MCP (for AI agents)
@@ -54,7 +54,7 @@ Add to your Claude config:
 {
   "mcpServers": {
     "shaderbase": {
-      "url": "https://mcp.shaderbase.dev/sse"
+      "url": "https://mcp.shaderbase.com/mcp"
     }
   }
 }
