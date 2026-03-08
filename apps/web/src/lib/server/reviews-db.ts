@@ -2,7 +2,8 @@ import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 
-const reviewsDbPath = resolve(process.cwd(), '.data', 'reviews.sqlite')
+const dataDir = process.env.DATA_DIR || resolve(process.cwd(), '.data')
+const reviewsDbPath = resolve(dataDir, 'reviews.sqlite')
 mkdirSync(dirname(reviewsDbPath), { recursive: true })
 
 const db = new DatabaseSync(reviewsDbPath)
