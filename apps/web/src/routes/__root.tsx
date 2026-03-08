@@ -44,10 +44,12 @@ function RootComponent() {
   return (
     <html>
       <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <HydrationScript />
+        <HeadContent />
       </head>
       <body class="min-h-screen bg-surface-primary font-sans text-text-primary antialiased">
-        <HeadContent />
         <Suspense>
           <Header />
           <Outlet />
