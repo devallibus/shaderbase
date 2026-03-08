@@ -14,7 +14,7 @@
     "dev:web": "cd apps/web && bun run dev",
     "test": "node --experimental-strip-types packages/schema/src/index.test.ts && bun run test:cli && bun run test:mcp && bun run test:registry",
     "test:cli": "node --experimental-strip-types packages/cli/src/registry-types.test.ts && node --experimental-strip-types packages/cli/src/commands/search.test.ts && node --experimental-strip-types packages/cli/src/commands/add.test.ts",
-    "test:mcp": "node --experimental-strip-types packages/mcp/src/handlers.test.ts",
+    "test:mcp": "node --experimental-strip-types packages/mcp/src/handlers.test.ts && node --experimental-strip-types packages/mcp/src/index.test.ts",
     "test:registry": "node --experimental-strip-types scripts/build-registry.test.ts",
     "typecheck": "tsc -p tsconfig.json",
     "validate:shaders": "node --experimental-strip-types scripts/validate-shaders.ts"
