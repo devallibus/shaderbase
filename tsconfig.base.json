@@ -3,6 +3,7 @@
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "lib": ["ESNext"],
+    "types": ["node"],
     "module": "Preserve",
     "moduleDetection": "force",
     "moduleResolution": "bundler",

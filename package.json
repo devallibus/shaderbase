@@ -20,6 +20,7 @@
     "validate:shaders": "node --experimental-strip-types scripts/validate-shaders.ts"
   },
   "devDependencies": {
+    "@types/node": "^25.3.5",
     "nitro": "^3.0.1-20260227-181935-bfbb207c",
     "typescript": "^5.7.3",
     "zod": "^3.23.8"
