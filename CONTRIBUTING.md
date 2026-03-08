@@ -11,6 +11,8 @@ ShaderBase accepts new shaders only when provenance is explicit and reproducible
 
 ## Submission Checklist
 
+When submitting via pull request, use the [shader submission PR template](.github/PULL_REQUEST_TEMPLATE/shader_submission.md) — it guides you through all required fields.
+
 For every shader entry under `shaders/<name>/`:
 
 - Add `shader.json` with valid schema metadata.

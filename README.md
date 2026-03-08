@@ -2,9 +2,15 @@
 
 A shader registry for Three.js — browse, search, and add production-ready GLSL shaders to your project. Like [shadcn/ui](https://ui.shadcn.com), but for shaders: the CLI copies source files into your codebase. You own the code.
 
-**[shaderbase.com](https://shaderbase.com)** · **[MCP server](https://mcp.shaderbase.com/mcp)**
+[![npm](https://img.shields.io/npm/v/@shaderbase/cli)](https://www.npmjs.com/package/@shaderbase/cli)
+[![CI](https://img.shields.io/github/actions/workflow/status/devallibus/shaderbase/validate.yml?branch=master)](https://github.com/devallibus/shaderbase/actions)
+[![License](https://img.shields.io/github/license/devallibus/shaderbase)](LICENSE)
 
-## Usage
+[Website](https://shaderbase.com) | [MCP Server](https://mcp.shaderbase.com) | [Contributing](CONTRIBUTING.md)
+
+---
+
+## Quick Start
 
 ### CLI
 
@@ -38,13 +44,23 @@ Add to your Claude config:
 
 Tools: `search_shaders`, `get_shader`, `submit_shader`
 
-## How it works
+## How It Works
 
 1. **Shaders live in git** — each has a `shader.json` manifest, GLSL source, and integration recipes
 2. **CI builds the registry** — static JSON deployed to CDN
 3. **Agents use MCP** — remote server with search and retrieval tools
 4. **Humans use the CLI** — `npx @shaderbase/cli add <shader> --env r3f`
 5. **Files are copied into your project** — no runtime dependency, you own the code
+
+## What's in the Registry
+
+The registry includes shaders across several categories:
+
+- **Surface** — gradients, noise patterns, color effects
+- **Geometry** — vertex displacement, morphing, particles
+- **Post-processing** — bloom, blur, distortion, color grading
+
+Browse the full collection at [shaderbase.com](https://shaderbase.com).
 
 ## Development
 
@@ -83,7 +99,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for provenance rules and the submission c
 Submissions can be made via:
 - **CLI**: `npx @shaderbase/cli submit <glsl-or-url>`
 - **MCP**: `submit_shader` tool
-- **Pull request**: directly to `shaders/`
+- **Pull request**: directly to `shaders/` — use the [shader submission template](.github/PULL_REQUEST_TEMPLATE/shader_submission.md)
 
 ## License
 
