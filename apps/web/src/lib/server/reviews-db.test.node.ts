@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict'
-import {
+import { mkdtempSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+
+// Isolate test DB in a temp directory so runs are idempotent
+process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'reviews-test-'))
+
+const {
   addReview,
   getReviewsForShader,
   getAverageRating,
   getAllShaderRatings,
-} from './reviews-db.ts'
+} = await import('./reviews-db.ts')
 
 function runTest(name: string, callback: () => void | Promise<void>) {
   const result = callback()
@@ -103,6 +110,74 @@ runTest('addReview handles optional parameters', () => {
   assert.equal(reviews[0]!.source, 'mcp')
   assert.equal(reviews[0]!.agentContext, 'agent-session-123')
   assert.equal(reviews[0]!.userID, 'user-456')
+})
+
+runTest('rejects invalid rating (too high)', () => {
+  assert.throws(() => addReview(`${testShader}-bad1`, 6), /Rating must be an integer/)
+})
+
+runTest('rejects invalid rating (zero)', () => {
+  assert.throws(() => addReview(`${testShader}-bad2`, 0), /Rating must be an integer/)
+})
+
+runTest('rejects invalid rating (float)', () => {
+  assert.throws(() => addReview(`${testShader}-bad3`, 3.5), /Rating must be an integer/)
+})
+
+runTest('sanitizes unknown source to web', () => {
+  const shader = `${testShader}-badsource`
+  addReview(shader, 3, null, 'evil-source')
+  const { reviews } = getReviewsForShader(shader)
+  assert.equal(reviews[0]!.source, 'web')
+})
+
+runTest('truncates long comments', () => {
+  const shader = `${testShader}-longcomment`
+  const longComment = 'x'.repeat(5000)
+  addReview(shader, 4, longComment)
+  const { reviews } = getReviewsForShader(shader)
+  assert.equal(reviews[0]!.comment!.length, 2000)
+})
+
+runTest('duplicate review from same reviewer token is rejected', () => {
+  const shader = `${testShader}-dupe`
+  addReview(shader, 4, null, 'web', null, null, '192.168.1.100', 'reviewer-a')
+  assert.throws(
+    () => addReview(shader, 5, null, 'web', null, null, '198.51.100.2', 'reviewer-a'),
+    /already reviewed this shader/,
+  )
+})
+
+runTest('allows same shader from different reviewer tokens on same IP', () => {
+  const shader = `${testShader}-shared-ip`
+  const ip = '10.0.0.1'
+  addReview(shader, 4, null, 'web', null, null, ip, 'reviewer-a')
+  addReview(shader, 5, null, 'web', null, null, ip, 'reviewer-b')
+})
+
+runTest('allows different shaders from same IP', () => {
+  const ip = '10.0.0.1'
+  addReview(`${testShader}-diff1`, 4, null, 'web', null, null, ip)
+  addReview(`${testShader}-diff2`, 4, null, 'web', null, null, ip)
+  // Should not throw — different shaders
+})
+
+runTest('reviews without IP bypass rate limiting', () => {
+  const shader = `${testShader}-noip`
+  addReview(shader, 4, null, 'web', null, null, null)
+  addReview(shader, 5, null, 'web', null, null, null)
+  // Should not throw — no IP to track
+})
+
+runTest('rate limit rejects 6th review from same IP within window', () => {
+  const ip = '172.16.0.1'
+  for (let i = 1; i <= 5; i++) {
+    addReview(`${testShader}-rl-${i}`, 3, null, 'web', null, null, ip, `reviewer-${i}`)
+  }
+  assert.throws(
+    () => addReview(`${testShader}-rl-6`, 3, null, 'web', null, null, ip, 'reviewer-6'),
+    /Too many reviews submitted/,
+  )
 })
 
 console.log('reviews-db tests passed')

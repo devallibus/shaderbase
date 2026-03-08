@@ -42,11 +42,14 @@ export default function ReviewsSection(props: ReviewsSectionProps) {
   const [newComment, setNewComment] = createSignal('')
   const [submitting, setSubmitting] = createSignal(false)
   const [submitMessage, setSubmitMessage] = createSignal('')
+  const [submitError, setSubmitError] = createSignal(false)
+  const [cooldown, setCooldown] = createSignal(false)
 
   const handleSubmit = async () => {
-    if (newRating() === 0) return
+    if (newRating() === 0 || submitting() || cooldown()) return
     setSubmitting(true)
     setSubmitMessage('')
+    setSubmitError(false)
 
     try {
       await submit({
@@ -61,10 +64,15 @@ export default function ReviewsSection(props: ReviewsSectionProps) {
       setNewRating(0)
       setNewComment('')
 
+      // Cooldown to prevent rapid re-submission
+      setCooldown(true)
+      setTimeout(() => setCooldown(false), 5000)
+
       const updated = await fetchReviews({ data: { shaderName: props.shaderName } })
       setReviews(updated.reviews)
       setStats(updated.stats)
     } catch (e) {
+      setSubmitError(true)
       setSubmitMessage(e instanceof Error ? e.message : 'Failed to submit')
     } finally {
       setSubmitting(false)
@@ -122,13 +130,15 @@ export default function ReviewsSection(props: ReviewsSectionProps) {
           <button
             type="button"
             class="rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-surface-primary transition hover:bg-accent/80 disabled:opacity-50"
-            disabled={newRating() === 0 || submitting()}
+            disabled={newRating() === 0 || submitting() || cooldown()}
             onClick={() => void handleSubmit()}
           >
-            {submitting() ? 'Submitting...' : 'Submit'}
+            {submitting() ? 'Submitting...' : cooldown() ? 'Submitted' : 'Submit'}
           </button>
           <Show when={submitMessage()}>
-            <span class="text-xs text-text-muted">{submitMessage()}</span>
+            <span class={`text-xs ${submitError() ? 'text-red-400' : 'text-text-muted'}`}>
+              {submitMessage()}
+            </span>
           </Show>
         </div>
       </div>
