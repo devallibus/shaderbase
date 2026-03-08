@@ -61,6 +61,12 @@ export default function AiSubmitWizard() {
   const [parseError, setParseError] = createSignal('')
   const [processingStatus, setProcessingStatus] = createSignal('')
   const [parsed, setParsed] = createSignal<AiParsedShader | null>(null)
+  const [resolvedMeta, setResolvedMeta] = createSignal<{
+    sourceType: string
+    url?: string
+    title?: string
+    author?: string
+  } | null>(null)
   const [prLoading, setPrLoading] = createSignal(false)
   const [prError, setPrError] = createSignal('')
   const [prUrl, setPrUrl] = createSignal('')
@@ -97,6 +103,12 @@ export default function AiSubmitWizard() {
     try {
       setProcessingStatus('Resolving source...')
       const resolved = await resolve({ data: { rawInput: rawInput() } })
+      setResolvedMeta({
+        sourceType: resolved.sourceType,
+        url: resolved.metadata?.url,
+        title: resolved.metadata?.title,
+        author: resolved.metadata?.author,
+      })
 
       setProcessingStatus('Analyzing shader with AI...')
       const result = await aiParse({
@@ -195,7 +207,26 @@ export default function AiSubmitWizard() {
       },
       provenance: {
         sourceKind: data.sourceKind,
-        sources: [],
+        sources:
+          data.sourceKind !== 'original' && resolvedMeta()?.url
+            ? [
+                {
+                  name: resolvedMeta()?.title ?? data.displayName,
+                  kind: resolvedMeta()?.sourceType === 'shadertoy' ? 'demo'
+                    : resolvedMeta()?.sourceType === 'gist' ? 'file'
+                    : resolvedMeta()?.sourceType === 'github-file' ? 'file'
+                    : 'file',
+                  url: resolvedMeta()!.url!,
+                  ...(resolvedMeta()?.sourceType === 'github-file' || resolvedMeta()?.sourceType === 'gist'
+                    ? { repositoryUrl: resolvedMeta()!.url! }
+                    : {}),
+                  revision: `submitted-${new Date().toISOString().slice(0, 10)}`,
+                  retrievedAt: new Date().toISOString().slice(0, 10),
+                  license: 'MIT',
+                  authors: [resolvedMeta()?.author ?? 'Unknown'],
+                },
+              ]
+            : [],
         attribution: {
           summary: data.attributionSummary,
           ...(data.sourceKind !== 'original'
