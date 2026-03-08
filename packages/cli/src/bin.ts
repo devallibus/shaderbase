@@ -14,13 +14,18 @@ function printUsage(): void {
 Commands:
   search   Search the shader registry
   add      Add a shader to your project
+  submit   Submit a shader (creates a GitHub PR via AI analysis)
 
 Examples:
   shaderbase search --query noise
   shaderbase search --category post-processing --pipeline fragment-only
   shaderbase search --tag animated --tag noise --json
   shaderbase add perlin-noise
-  shaderbase add perlin-noise --env three --dir src/shaders`);
+  shaderbase add perlin-noise --env three --dir src/shaders
+  shaderbase submit "void main() { gl_FragColor = vec4(1.0); }"
+  shaderbase submit https://www.shadertoy.com/view/XsXXDn
+  shaderbase submit https://www.shadertoy.com/view/XsXXDn --json
+  echo "..." | shaderbase submit -`);
 }
 
 // ---------------------------------------------------------------------------
@@ -103,6 +108,63 @@ async function runAdd(argv: string[]): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// submit command
+// ---------------------------------------------------------------------------
+
+async function runSubmitCmd(argv: string[]): Promise<void> {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    options: {
+      repo: { type: "string", short: "r" },
+      json: { type: "boolean", default: false },
+    },
+    strict: false,
+    allowPositionals: true,
+  });
+
+  let source = positionals[0];
+  if (!source) {
+    console.error(
+      "Error: source is required (raw GLSL, URL, or '-' for stdin).\nUsage: shaderbase submit <source>",
+    );
+    process.exit(1);
+  }
+
+  // Read from stdin if source is "-"
+  if (source === "-") {
+    const { readFileSync } = await import("node:fs");
+    source = readFileSync(0, "utf-8");
+  }
+
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicApiKey) {
+    console.error("Error: ANTHROPIC_API_KEY environment variable is required.");
+    process.exit(1);
+  }
+
+  const githubToken = process.env.GITHUB_TOKEN;
+  if (!githubToken) {
+    console.error("Error: GITHUB_TOKEN environment variable is required.");
+    process.exit(1);
+  }
+
+  const { runSubmit } = await import("./commands/submit.ts");
+  const result = await runSubmit({
+    source,
+    anthropicApiKey,
+    githubToken,
+    repo: values.repo as string | undefined,
+  });
+
+  if (values.json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log(`Submitted shader "${result.shaderName}"`);
+    console.log(`  PR #${result.prNumber}: ${result.prUrl}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
 
@@ -116,6 +178,9 @@ async function main(): Promise<void> {
       break;
     case "add":
       await runAdd(args.slice(1));
+      break;
+    case "submit":
+      await runSubmitCmd(args.slice(1));
       break;
     default:
       printUsage();

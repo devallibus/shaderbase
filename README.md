@@ -13,7 +13,7 @@ packages/
 scripts/
   build-registry.ts   Generates static registry JSON from corpus
   validate-shaders.ts Validates all shader manifests
-apps/web/             SolidJS web app (browse, search, AI submit)
+apps/web/             SolidJS web app (browse, search, detail pages)
 ```
 
 ### How it works
@@ -45,6 +45,10 @@ npx @shaderbase/cli search --pipeline postprocessing --env r3f
 # Add a shader to your project
 npx @shaderbase/cli add gradient-radial --env r3f
 npx @shaderbase/cli add gradient-radial --env three --dir src/shaders
+
+# Submit a shader (creates a GitHub PR via AI analysis)
+npx @shaderbase/cli submit "void main() { gl_FragColor = vec4(1.0); }"
+npx @shaderbase/cli submit https://www.shadertoy.com/view/XsXXDn
 ```
 
 ### MCP (for AI agents)
@@ -60,7 +64,7 @@ Add to your Claude config:
 }
 ```
 
-Tools: `search_shaders(query, category, pipeline, environment, tags)` and `get_shader(name, environment)`
+Tools: `search_shaders`, `get_shader`, and `submit_shader`
 
 ## Repository Map
 
@@ -71,7 +75,7 @@ Tools: `search_shaders(query, category, pipeline, environment, tags)` and `get_s
 | `packages/cli/` | CLI package (`shaderbase` on npm) |
 | `packages/mcp/` | MCP server (Cloudflare Worker) |
 | `scripts/` | Build and validation scripts |
-| `apps/web/` | Web app (browse, search, AI submit) |
+| `apps/web/` | Web app (browse, search, detail pages) |
 | `docs/` | Git contract, plans |
 
 ## Contributing
@@ -79,5 +83,6 @@ Tools: `search_shaders(query, category, pipeline, environment, tags)` and `get_s
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the provenance bar and submission checklist.
 
 Submissions can be made via:
-- The web app at `/submit` (AI parses your GLSL, creates a PR)
+- The CLI: `npx @shaderbase/cli submit <glsl-or-url>` (AI parses your GLSL, creates a PR)
+- The MCP `submit_shader` tool (for AI agents)
 - Direct pull request to the `shaders/` directory

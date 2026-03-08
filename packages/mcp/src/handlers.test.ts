@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { RegistryIndex, RegistryShaderBundle } from "../../cli/src/registry-types.ts";
-import { handleSearchShaders, handleGetShader } from "./handlers.ts";
+import { handleSearchShaders, handleGetShader, handleSubmitShader } from "./handlers.ts";
 
 function runTest(name: string, callback: () => void | Promise<void>) {
   const result = callback();
@@ -201,6 +201,32 @@ async function main() {
     assert.equal(Object.keys(bundle.recipes).length, 1);
     assert.ok("three" in bundle.recipes);
     assert.ok(!("r3f" in bundle.recipes));
+  });
+
+  // ---------------------------------------------------------------------------
+  // submit_shader handler tests
+  // ---------------------------------------------------------------------------
+
+  await runTest("handleSubmitShader throws on missing source", async () => {
+    await assert.rejects(
+      () =>
+        handleSubmitShader(
+          { source: "" },
+          { anthropicApiKey: "fake", githubToken: "fake" },
+        ),
+      /Missing required parameter: source/,
+    );
+  });
+
+  await runTest("handleSubmitShader throws on invalid repo format", async () => {
+    await assert.rejects(
+      () =>
+        handleSubmitShader(
+          { source: "void main() {}" },
+          { anthropicApiKey: "fake", githubToken: "fake", repo: "noslash" },
+        ),
+      /owner\/repo/,
+    );
   });
 
   console.log("handlers tests passed");

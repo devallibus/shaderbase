@@ -13,7 +13,7 @@
   "scripts": {
     "build": "bun build src/bin.ts --outdir dist --target node && bun build src/index.ts --outdir dist --target node && node -e \"const fs=require('fs');const f='dist/bin.js';fs.writeFileSync(f,'#!/usr/bin/env node\\n'+fs.readFileSync(f))\"",
     "prepublishOnly": "bun run build",
-    "test": "node --experimental-strip-types src/registry-types.test.ts"
+    "test": "node --experimental-strip-types src/registry-types.test.ts && node --experimental-strip-types src/lib/resolve-source.test.ts && node --experimental-strip-types src/lib/build-manifest.test.ts && node --experimental-strip-types src/lib/github-pr.test.ts && node --experimental-strip-types src/commands/submit.test.ts"
   },
   "keywords": [
     "shader",
@@ -32,6 +32,8 @@
   },
   "license": "MIT",
   "dependencies": {
+    "ai": "^4.3.0",
+    "@ai-sdk/anthropic": "^1.2.0",
     "zod": "^3.23.8"
   }
 }
