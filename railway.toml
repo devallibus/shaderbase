@@ -1,0 +1,17 @@
+[build]
+builder = "NIXPACKS"
+
+[build.nixpacksPlan.phases.setup]
+nixPkgs = ["nodejs_22", "bun"]
+onlyIncludeFiles = ["apps/web", "packages", "package.json", "bun.lock", "tsconfig.base.json"]
+
+[build.nixpacksPlan.phases.install]
+cmds = ["bun install", "cd apps/web && bun install"]
+
+[build.nixpacksPlan.phases.build]
+cmds = ["cd apps/web && bun run build"]
+
+[deploy]
+startCommand = "node apps/web/.output/server/index.mjs"
+healthcheckPath = "/"
+restartPolicyType = "ON_FAILURE"
