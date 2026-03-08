@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as ShadersRouteImport } from './routes/shaders'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,11 +16,6 @@ import { Route as ShadersIndexRouteImport } from './routes/shaders.index'
 import { Route as ShadersNameRouteImport } from './routes/shaders.$name'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
-const SubmitRoute = SubmitRouteImport.update({
-  id: '/submit',
-  path: '/submit',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ShadersRoute = ShadersRouteImport.update({
   id: '/shaders',
   path: '/shaders',
@@ -57,7 +51,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/shaders': typeof ShadersRouteWithChildren
-  '/submit': typeof SubmitRoute
   '/shaders/$name': typeof ShadersNameRoute
   '/shaders/': typeof ShadersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -65,7 +58,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/submit': typeof SubmitRoute
   '/shaders/$name': typeof ShadersNameRoute
   '/shaders': typeof ShadersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -75,7 +67,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/shaders': typeof ShadersRouteWithChildren
-  '/submit': typeof SubmitRoute
   '/shaders/$name': typeof ShadersNameRoute
   '/shaders/': typeof ShadersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -86,18 +77,16 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/shaders'
-    | '/submit'
     | '/shaders/$name'
     | '/shaders/'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/submit' | '/shaders/$name' | '/shaders' | '/api/auth/$'
+  to: '/' | '/about' | '/shaders/$name' | '/shaders' | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/shaders'
-    | '/submit'
     | '/shaders/$name'
     | '/shaders/'
     | '/api/auth/$'
@@ -107,19 +96,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   ShadersRoute: typeof ShadersRouteWithChildren
-  SubmitRoute: typeof SubmitRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/solid-router' {
   interface FileRoutesByPath {
-    '/submit': {
-      id: '/submit'
-      path: '/submit'
-      fullPath: '/submit'
-      preLoaderRoute: typeof SubmitRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/shaders': {
       id: '/shaders'
       path: '/shaders'
@@ -182,7 +163,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   ShadersRoute: ShadersRouteWithChildren,
-  SubmitRoute: SubmitRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
