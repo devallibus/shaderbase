@@ -86,13 +86,17 @@ export function addReview(
       throw new Error('Too many reviews submitted. Please try again later.')
     }
 
-    // Duplicate prevention: one review per IP per shader, ever
+    // Duplicate prevention: one review per IP per shader per 24 hours
+    // Uses a time window instead of permanent to avoid blocking users on shared IPs (NAT, offices, mobile carriers)
     const duplicate = db
-      .prepare(`SELECT id FROM reviews WHERE client_ip = ? AND shader_name = ?`)
+      .prepare(
+        `SELECT id FROM reviews
+         WHERE client_ip = ? AND shader_name = ? AND created_at > datetime('now', '-24 hours')`,
+      )
       .get(clientIp, shaderName) as { id: number } | undefined
 
     if (duplicate) {
-      throw new Error('You already reviewed this shader')
+      throw new Error('You already reviewed this shader recently')
     }
   }
 

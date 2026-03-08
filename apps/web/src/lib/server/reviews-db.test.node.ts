@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict'
-import {
+import { mkdtempSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+
+// Isolate test DB in a temp directory so runs are idempotent
+process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'reviews-test-'))
+
+const {
   addReview,
   getReviewsForShader,
   getAverageRating,
   getAllShaderRatings,
-} from './reviews-db.ts'
+} = await import('./reviews-db.ts')
 
 function runTest(name: string, callback: () => void | Promise<void>) {
   const result = callback()
@@ -143,9 +150,9 @@ runTest('duplicate review from same IP is rejected', () => {
 })
 
 runTest('allows different shaders from same IP', () => {
-  const ip = `10.0.0.${Date.now() % 255}`
-  addReview(`${testShader}-rl1`, 4, null, 'web', null, null, ip)
-  addReview(`${testShader}-rl2`, 4, null, 'web', null, null, ip)
+  const ip = '10.0.0.1'
+  addReview(`${testShader}-diff1`, 4, null, 'web', null, null, ip)
+  addReview(`${testShader}-diff2`, 4, null, 'web', null, null, ip)
   // Should not throw — different shaders
 })
 
@@ -154,6 +161,17 @@ runTest('reviews without IP bypass rate limiting', () => {
   addReview(shader, 4, null, 'web', null, null, null)
   addReview(shader, 5, null, 'web', null, null, null)
   // Should not throw — no IP to track
+})
+
+runTest('rate limit rejects 6th review from same IP within window', () => {
+  const ip = '172.16.0.1'
+  for (let i = 1; i <= 5; i++) {
+    addReview(`${testShader}-rl-${i}`, 3, null, 'web', null, null, ip)
+  }
+  assert.throws(
+    () => addReview(`${testShader}-rl-6`, 3, null, 'web', null, null, ip),
+    /Too many reviews submitted/,
+  )
 })
 
 console.log('reviews-db tests passed')
