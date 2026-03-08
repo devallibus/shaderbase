@@ -81,6 +81,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@shaderbase/cli
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -112,5 +115,3 @@ jobs:
           else
             echo "Version $LOCAL already published, skipping."
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
