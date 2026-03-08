@@ -6,8 +6,9 @@ export default function Header() {
       <nav class="mx-auto flex w-full max-w-7xl items-center py-3.5">
         <Link
           to="/"
-          class="font-mono text-sm font-semibold tracking-tight text-accent no-underline transition hover:text-accent/70"
+          class="flex items-center gap-2 font-mono text-sm font-semibold tracking-tight text-accent no-underline transition hover:text-accent/70"
         >
+          <img src="/favicon.svg" alt="" width="20" height="20" class="rounded" />
           shaderbase
         </Link>
 
