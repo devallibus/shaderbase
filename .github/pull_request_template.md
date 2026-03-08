@@ -1,6 +1,8 @@
+> Submitting a new shader? Use the [shader submission template](?template=shader_submission.md) instead.
+
 ## Summary
 
-- 
+-
 
 ## Provenance Checklist
 
@@ -13,4 +15,4 @@
 
 ## Notes
 
-- 
+-
