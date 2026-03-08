@@ -16,14 +16,11 @@ type GetReviewsInput = {
 export const submitReview = createServerFn({ method: 'POST' })
   .inputValidator((input: SubmitReviewInput) => input)
   .handler(async ({ data }) => {
-    const { existsSync } = await import('node:fs')
-    const { join, resolve } = await import('node:path')
     const { addReview } = await import('../../lib/server/reviews-db')
+    const { listShadersFromSource } = await import('../../lib/server/shader-source')
 
-    const repoRoot = resolve(process.cwd(), '../..')
-    const shaderDir = join(repoRoot, 'shaders', data.shaderName)
-
-    if (!existsSync(shaderDir)) {
+    const shaders = await listShadersFromSource()
+    if (!shaders.some((s) => s.name === data.shaderName)) {
       throw new Error(`Shader "${data.shaderName}" not found`)
     }
 
