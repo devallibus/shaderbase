@@ -5,7 +5,8 @@ import { betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db/migration'
 import { tanstackStartCookies } from 'better-auth/tanstack-start/solid'
 
-const authDbPath = resolve(process.cwd(), '.data', 'better-auth.sqlite')
+const dataDir = process.env.DATA_DIR || resolve(process.cwd(), '.data')
+const authDbPath = resolve(dataDir, 'better-auth.sqlite')
 
 mkdirSync(dirname(authDbPath), { recursive: true })
 
