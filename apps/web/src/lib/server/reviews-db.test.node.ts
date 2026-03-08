@@ -105,4 +105,55 @@ runTest('addReview handles optional parameters', () => {
   assert.equal(reviews[0]!.userID, 'user-456')
 })
 
+runTest('rejects invalid rating (too high)', () => {
+  assert.throws(() => addReview(`${testShader}-bad1`, 6), /Rating must be an integer/)
+})
+
+runTest('rejects invalid rating (zero)', () => {
+  assert.throws(() => addReview(`${testShader}-bad2`, 0), /Rating must be an integer/)
+})
+
+runTest('rejects invalid rating (float)', () => {
+  assert.throws(() => addReview(`${testShader}-bad3`, 3.5), /Rating must be an integer/)
+})
+
+runTest('sanitizes unknown source to web', () => {
+  const shader = `${testShader}-badsource`
+  addReview(shader, 3, null, 'evil-source')
+  const { reviews } = getReviewsForShader(shader)
+  assert.equal(reviews[0]!.source, 'web')
+})
+
+runTest('truncates long comments', () => {
+  const shader = `${testShader}-longcomment`
+  const longComment = 'x'.repeat(5000)
+  addReview(shader, 4, longComment)
+  const { reviews } = getReviewsForShader(shader)
+  assert.equal(reviews[0]!.comment!.length, 2000)
+})
+
+runTest('duplicate review from same IP is rejected', () => {
+  const shader = `${testShader}-dupe`
+  const ip = '192.168.1.100'
+  addReview(shader, 4, null, 'web', null, null, ip)
+  assert.throws(
+    () => addReview(shader, 5, null, 'web', null, null, ip),
+    /already reviewed this shader/,
+  )
+})
+
+runTest('allows different shaders from same IP', () => {
+  const ip = `10.0.0.${Date.now() % 255}`
+  addReview(`${testShader}-rl1`, 4, null, 'web', null, null, ip)
+  addReview(`${testShader}-rl2`, 4, null, 'web', null, null, ip)
+  // Should not throw — different shaders
+})
+
+runTest('reviews without IP bypass rate limiting', () => {
+  const shader = `${testShader}-noip`
+  addReview(shader, 4, null, 'web', null, null, null)
+  addReview(shader, 5, null, 'web', null, null, null)
+  // Should not throw — no IP to track
+})
+
 console.log('reviews-db tests passed')

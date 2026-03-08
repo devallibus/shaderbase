@@ -17,10 +17,24 @@ db.exec(`
     source TEXT NOT NULL DEFAULT 'web',
     agent_context TEXT,
     user_id TEXT,
+    client_ip TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_reviews_shader ON reviews(shader_name);
 `)
+
+// Migration: add client_ip column to tables created before this column existed
+try {
+  db.exec(`ALTER TABLE reviews ADD COLUMN client_ip TEXT`)
+} catch {
+  // Column already exists
+}
+
+db.exec(`CREATE INDEX IF NOT EXISTS idx_reviews_ip_time ON reviews(client_ip, created_at)`)
+
+const MAX_COMMENT_LENGTH = 2000
+const RATE_LIMIT_WINDOW_MINUTES = 10
+const RATE_LIMIT_MAX_REVIEWS = 5
 
 export type Review = {
   id: number
@@ -45,18 +59,55 @@ export function addReview(
   source = 'web',
   agentContext?: string | null,
   userId?: string | null,
+  clientIp?: string | null,
 ): number {
+  // Validate rating is an integer 1-5
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    throw new Error('Rating must be an integer between 1 and 5')
+  }
+
+  // Validate and truncate comment
+  const sanitizedComment = comment ? comment.slice(0, MAX_COMMENT_LENGTH).trim() || null : null
+
+  // Validate source
+  const allowedSources = ['web', 'mcp', 'cli']
+  const sanitizedSource = allowedSources.includes(source) ? source : 'web'
+
+  // Rate limit: max N reviews per IP within the window
+  if (clientIp) {
+    const recentCount = db
+      .prepare(
+        `SELECT COUNT(*) AS count FROM reviews
+         WHERE client_ip = ? AND created_at > datetime('now', ?)`,
+      )
+      .get(clientIp, `-${RATE_LIMIT_WINDOW_MINUTES} minutes`) as { count: number }
+
+    if (recentCount.count >= RATE_LIMIT_MAX_REVIEWS) {
+      throw new Error('Too many reviews submitted. Please try again later.')
+    }
+
+    // Duplicate prevention: one review per IP per shader, ever
+    const duplicate = db
+      .prepare(`SELECT id FROM reviews WHERE client_ip = ? AND shader_name = ?`)
+      .get(clientIp, shaderName) as { id: number } | undefined
+
+    if (duplicate) {
+      throw new Error('You already reviewed this shader')
+    }
+  }
+
   const stmt = db.prepare(
-    `INSERT INTO reviews (shader_name, rating, comment, source, agent_context, user_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO reviews (shader_name, rating, comment, source, agent_context, user_id, client_ip)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   )
   const result = stmt.run(
     shaderName,
     rating,
-    comment ?? null,
-    source,
+    sanitizedComment,
+    sanitizedSource,
     agentContext ?? null,
     userId ?? null,
+    clientIp ?? null,
   )
   return Number(result.lastInsertRowid)
 }
