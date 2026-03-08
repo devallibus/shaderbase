@@ -119,6 +119,9 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
+      - name: Upgrade npm (trusted publishing requires >= 11.5.1)
+        run: npm install -g npm@latest
+
       - name: Build CLI
         run: cd packages/cli && bun run build
 
@@ -132,5 +135,3 @@ jobs:
           else
             echo "Version $LOCAL already published, skipping."
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
