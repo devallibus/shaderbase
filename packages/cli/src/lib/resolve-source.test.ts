@@ -142,7 +142,6 @@ async function main() {
       'https://gist.github.com/gistuser/abc123def456',
       mockFetch,
     )
-    // Should pick shader.glsl over notes.txt
     assert.ok(result.code.includes('gl_FragColor'))
     assert.ok(!result.code.includes('Some notes'))
   })
@@ -183,7 +182,7 @@ async function main() {
     )
   })
 
-  console.log('ai-parse tests passed')
+  console.log('resolve-source tests passed')
 }
 
 main()

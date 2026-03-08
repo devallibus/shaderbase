@@ -21,13 +21,6 @@ export default function Header() {
             shaders
           </Link>
           <Link
-            to="/submit"
-            class="text-text-muted no-underline transition hover:text-text-primary"
-            activeProps={{ class: 'text-text-primary' }}
-          >
-            submit
-          </Link>
-          <Link
             to="/about"
             class="text-text-muted no-underline transition hover:text-text-primary"
             activeProps={{ class: 'text-text-primary' }}

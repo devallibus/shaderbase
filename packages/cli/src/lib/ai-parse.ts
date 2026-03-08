@@ -1,16 +1,6 @@
-import { createServerFn } from '@tanstack/solid-start'
 import { z } from 'zod'
-import { resolveSource } from './resolve-source.ts'
 
-export type { ResolvedSource } from './resolve-source.ts'
-
-export const resolveShaderSource = createServerFn({ method: 'POST' })
-  .inputValidator((input: { rawInput: string }) => input)
-  .handler(async ({ data }) => {
-    return resolveSource(data.rawInput)
-  })
-
-const aiFormDataSchema = z.object({
+export const aiFormDataSchema = z.object({
   name: z.string(),
   displayName: z.string(),
   summary: z.string(),
@@ -54,6 +44,8 @@ const aiFormDataSchema = z.object({
   fragmentShader: z.string(),
 })
 
+export type AiParsedShader = z.infer<typeof aiFormDataSchema>
+
 const systemPrompt = `You are a GLSL shader analyzer for ShaderBase, a Three.js shader registry.
 Given shader source code, analyze it and extract metadata to populate a submission form.
 
@@ -77,39 +69,33 @@ type AiParseInput = {
   metadata?: { title?: string; author?: string; url?: string }
 }
 
-export const aiParseShader = createServerFn({ method: 'POST' })
-  .inputValidator((input: AiParseInput) => input)
-  .handler(async ({ data }) => {
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      throw new Error(
-        'ANTHROPIC_API_KEY is not configured. Add it to apps/web/.env to enable AI parsing.',
-      )
-    }
+export async function aiParseShader(
+  input: AiParseInput,
+  apiKey: string,
+): Promise<AiParsedShader> {
+  const { generateObject } = await import('ai')
+  const { createAnthropic } = await import('@ai-sdk/anthropic')
 
-    const { generateObject } = await import('ai')
-    const { createAnthropic } = await import('@ai-sdk/anthropic')
+  const anthropic = createAnthropic({ apiKey })
 
-    const anthropic = createAnthropic({ apiKey })
+  const userMessage = [
+    `Source type: ${input.sourceType}`,
+    input.metadata?.title ? `Title: ${input.metadata.title}` : '',
+    input.metadata?.author ? `Author: ${input.metadata.author}` : '',
+    input.metadata?.url ? `URL: ${input.metadata.url}` : '',
+    '',
+    '--- SHADER CODE ---',
+    input.code,
+  ]
+    .filter(Boolean)
+    .join('\n')
 
-    const userMessage = [
-      `Source type: ${data.sourceType}`,
-      data.metadata?.title ? `Title: ${data.metadata.title}` : '',
-      data.metadata?.author ? `Author: ${data.metadata.author}` : '',
-      data.metadata?.url ? `URL: ${data.metadata.url}` : '',
-      '',
-      '--- SHADER CODE ---',
-      data.code,
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    const result = await generateObject({
-      model: anthropic('claude-sonnet-4-20250514'),
-      system: systemPrompt,
-      prompt: userMessage,
-      schema: aiFormDataSchema,
-    })
-
-    return result.object
+  const result = await generateObject({
+    model: anthropic('claude-sonnet-4-20250514'),
+    system: systemPrompt,
+    prompt: userMessage,
+    schema: aiFormDataSchema,
   })
+
+  return result.object
+}
