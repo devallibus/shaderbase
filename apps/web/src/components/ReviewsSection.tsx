@@ -11,15 +11,19 @@ type ReviewsSectionProps = {
 }
 
 function StarRating(props: { rating: number; interactive?: boolean; onRate?: (r: number) => void }) {
+  const [hoverRating, setHoverRating] = createSignal(0)
+  const displayRating = () => (props.interactive && hoverRating() > 0 ? hoverRating() : props.rating)
+
   return (
-    <div class="inline-flex gap-0.5">
+    <div class="inline-flex gap-0.5" onMouseLeave={() => setHoverRating(0)}>
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           type="button"
           class={`text-sm transition ${
-            star <= props.rating ? 'text-accent' : 'text-surface-card-border'
+            star <= displayRating() ? 'text-accent' : 'text-surface-card-border'
           } ${props.interactive ? 'cursor-pointer hover:text-accent/70' : 'cursor-default'}`}
           onClick={() => props.interactive && props.onRate?.(star)}
+          onMouseEnter={() => props.interactive && setHoverRating(star)}
           disabled={!props.interactive}
         >
           &#9733;
