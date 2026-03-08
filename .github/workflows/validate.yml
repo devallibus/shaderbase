@@ -92,8 +92,11 @@ jobs:
         with:
           bun-version: 1.3.8
 
-      - name: Install Dependencies
+      - name: Install Root Dependencies
         run: bun install --frozen-lockfile
+
+      - name: Install Web App Dependencies
+        run: cd apps/web && bun install --frozen-lockfile
 
       - name: Build Web App for Cloudflare Pages
         run: cd apps/web && NITRO_PRESET=cloudflare-pages bun run build
