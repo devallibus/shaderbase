@@ -139,14 +139,20 @@ runTest('truncates long comments', () => {
   assert.equal(reviews[0]!.comment!.length, 2000)
 })
 
-runTest('duplicate review from same IP is rejected', () => {
+runTest('duplicate review from same reviewer token is rejected', () => {
   const shader = `${testShader}-dupe`
-  const ip = '192.168.1.100'
-  addReview(shader, 4, null, 'web', null, null, ip)
+  addReview(shader, 4, null, 'web', null, null, '192.168.1.100', 'reviewer-a')
   assert.throws(
-    () => addReview(shader, 5, null, 'web', null, null, ip),
+    () => addReview(shader, 5, null, 'web', null, null, '198.51.100.2', 'reviewer-a'),
     /already reviewed this shader/,
   )
+})
+
+runTest('allows same shader from different reviewer tokens on same IP', () => {
+  const shader = `${testShader}-shared-ip`
+  const ip = '10.0.0.1'
+  addReview(shader, 4, null, 'web', null, null, ip, 'reviewer-a')
+  addReview(shader, 5, null, 'web', null, null, ip, 'reviewer-b')
 })
 
 runTest('allows different shaders from same IP', () => {
@@ -166,10 +172,10 @@ runTest('reviews without IP bypass rate limiting', () => {
 runTest('rate limit rejects 6th review from same IP within window', () => {
   const ip = '172.16.0.1'
   for (let i = 1; i <= 5; i++) {
-    addReview(`${testShader}-rl-${i}`, 3, null, 'web', null, null, ip)
+    addReview(`${testShader}-rl-${i}`, 3, null, 'web', null, null, ip, `reviewer-${i}`)
   }
   assert.throws(
-    () => addReview(`${testShader}-rl-6`, 3, null, 'web', null, null, ip),
+    () => addReview(`${testShader}-rl-6`, 3, null, 'web', null, null, ip, 'reviewer-6'),
     /Too many reviews submitted/,
   )
 })

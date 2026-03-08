@@ -1,5 +1,6 @@
+import { randomBytes, createHash } from 'node:crypto'
 import { createServerFn } from '@tanstack/solid-start'
-import { getRequestIP } from '@tanstack/solid-start/server'
+import { getCookie, getRequestIP, getRequestProtocol, setCookie } from '@tanstack/solid-start/server'
 
 type SubmitReviewInput = {
   shaderName: string
@@ -14,8 +15,32 @@ type GetReviewsInput = {
   shaderName: string
 }
 
+const REVIEWER_COOKIE_NAME = 'shaderbase-reviewer'
+const REVIEWER_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365
+
 function getClientIp(): string | null {
   return getRequestIP({ xForwardedFor: true }) ?? null
+}
+
+function hashReviewerToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+function getOrCreateReviewerTokenHash(): string | null {
+  let reviewerToken = getCookie(REVIEWER_COOKIE_NAME)
+
+  if (!reviewerToken) {
+    reviewerToken = randomBytes(32).toString('hex')
+    setCookie(REVIEWER_COOKIE_NAME, reviewerToken, {
+      httpOnly: true,
+      maxAge: REVIEWER_COOKIE_MAX_AGE_SECONDS,
+      path: '/',
+      sameSite: 'lax',
+      secure: getRequestProtocol({ xForwardedProto: true }) === 'https',
+    })
+  }
+
+  return reviewerToken ? hashReviewerToken(reviewerToken) : null
 }
 
 export const submitReview = createServerFn({ method: 'POST' })
@@ -31,6 +56,7 @@ export const submitReview = createServerFn({ method: 'POST' })
     }
 
     const clientIp = getClientIp()
+    const reviewerTokenHash = getOrCreateReviewerTokenHash()
 
     const reviewId = addReview(
       data.shaderName,
@@ -40,6 +66,7 @@ export const submitReview = createServerFn({ method: 'POST' })
       data.agentContext ? JSON.stringify(data.agentContext) : null,
       data.userId ?? null,
       clientIp,
+      reviewerTokenHash,
     )
 
     return { ok: true as const, reviewId }

@@ -18,6 +18,7 @@ db.exec(`
     agent_context TEXT,
     user_id TEXT,
     client_ip TEXT,
+    reviewer_token_hash TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_reviews_shader ON reviews(shader_name);
@@ -30,7 +31,17 @@ try {
   // Column already exists
 }
 
+try {
+  db.exec(`ALTER TABLE reviews ADD COLUMN reviewer_token_hash TEXT`)
+} catch {
+  // Column already exists
+}
+
 db.exec(`CREATE INDEX IF NOT EXISTS idx_reviews_ip_time ON reviews(client_ip, created_at)`)
+db.exec(
+  `CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_shader_time
+   ON reviews(reviewer_token_hash, shader_name, created_at)`,
+)
 
 const MAX_COMMENT_LENGTH = 2000
 const RATE_LIMIT_WINDOW_MINUTES = 10
@@ -60,6 +71,7 @@ export function addReview(
   agentContext?: string | null,
   userId?: string | null,
   clientIp?: string | null,
+  reviewerTokenHash?: string | null,
 ): number {
   // Validate rating is an integer 1-5
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -86,14 +98,17 @@ export function addReview(
       throw new Error('Too many reviews submitted. Please try again later.')
     }
 
-    // Duplicate prevention: one review per IP per shader per 24 hours
-    // Uses a time window instead of permanent to avoid blocking users on shared IPs (NAT, offices, mobile carriers)
+  }
+
+  if (reviewerTokenHash) {
     const duplicate = db
       .prepare(
         `SELECT id FROM reviews
-         WHERE client_ip = ? AND shader_name = ? AND created_at > datetime('now', '-24 hours')`,
+         WHERE reviewer_token_hash = ?
+           AND shader_name = ?
+           AND created_at > datetime('now', '-24 hours')`,
       )
-      .get(clientIp, shaderName) as { id: number } | undefined
+      .get(reviewerTokenHash, shaderName) as { id: number } | undefined
 
     if (duplicate) {
       throw new Error('You already reviewed this shader recently')
@@ -101,8 +116,16 @@ export function addReview(
   }
 
   const stmt = db.prepare(
-    `INSERT INTO reviews (shader_name, rating, comment, source, agent_context, user_id, client_ip)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO reviews (
+       shader_name,
+       rating,
+       comment,
+       source,
+       agent_context,
+       user_id,
+       client_ip,
+       reviewer_token_hash
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   )
   const result = stmt.run(
     shaderName,
@@ -112,6 +135,7 @@ export function addReview(
     agentContext ?? null,
     userId ?? null,
     clientIp ?? null,
+    reviewerTokenHash ?? null,
   )
   return Number(result.lastInsertRowid)
 }
