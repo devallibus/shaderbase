@@ -3,6 +3,7 @@
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "lib": ["ESNext"],
+    "types": ["node"],
     "module": "Preserve",
     "moduleDetection": "force",
     "moduleResolution": "bundler",
@@ -16,7 +17,8 @@
     "verbatimModuleSyntax": true,
     "baseUrl": ".",
     "paths": {
-      "@shaderbase/schema": ["packages/schema/src/index.ts"]
+      "@shaderbase/schema": ["packages/schema/src/index.ts"],
+      "@shaderbase/cli": ["packages/cli/src/index.ts"]
     }
   }
 }

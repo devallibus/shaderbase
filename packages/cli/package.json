@@ -1,0 +1,16 @@
+{
+  "name": "shaderbase",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "shaderbase": "./dist/bin.js"
+  },
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "bun build src/bin.ts --outdir dist --target node",
+    "test": "node --experimental-strip-types src/registry-types.test.ts"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}

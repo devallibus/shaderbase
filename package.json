@@ -8,14 +8,19 @@
     "packages/*"
   ],
   "scripts": {
+    "build:registry": "node --experimental-strip-types scripts/build-registry.ts",
     "build:web": "cd apps/web && bun run build",
     "check": "bun run test && bun run typecheck && bun run validate:shaders && bun run build:web",
     "dev:web": "cd apps/web && bun run dev",
-    "test": "node --experimental-strip-types packages/schema/src/index.test.ts",
+    "test": "node --experimental-strip-types packages/schema/src/index.test.ts && bun run test:cli && bun run test:mcp && bun run test:registry",
+    "test:cli": "node --experimental-strip-types packages/cli/src/registry-types.test.ts && node --experimental-strip-types packages/cli/src/commands/search.test.ts && node --experimental-strip-types packages/cli/src/commands/add.test.ts",
+    "test:mcp": "node --experimental-strip-types packages/mcp/src/handlers.test.ts",
+    "test:registry": "node --experimental-strip-types scripts/build-registry.test.ts",
     "typecheck": "tsc -p tsconfig.json",
     "validate:shaders": "node --experimental-strip-types scripts/validate-shaders.ts"
   },
   "devDependencies": {
+    "@types/node": "^25.3.5",
     "nitro": "^3.0.1-20260227-181935-bfbb207c",
     "typescript": "^5.7.3",
     "zod": "^3.23.8"

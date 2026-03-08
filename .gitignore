@@ -15,3 +15,13 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Runtime data
+.data/
+
+# Build artifacts
+.output/
+.nitro/
+
+# Playwright test artifacts
+.playwright-mcp/

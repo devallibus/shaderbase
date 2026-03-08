@@ -13,6 +13,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -22,7 +27,49 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run Tests
-        run: bun test
+        run: bun run test
+
+      - name: Type Check
+        run: bun run typecheck
 
       - name: Validate Shader Manifests
         run: bun run validate:shaders
+
+      - name: Build Registry
+        run: bun run build:registry
+
+      - name: Upload Registry Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: registry
+          path: dist/registry/
+
+  deploy-registry:
+    needs: check
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.8
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Registry
+        run: bun run build:registry
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: pages deploy dist/registry --project-name=shaderbase-registry
