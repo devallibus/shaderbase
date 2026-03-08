@@ -132,3 +132,5 @@ jobs:
           else
             echo "Version $LOCAL already published, skipping."
           fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
