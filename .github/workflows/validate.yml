@@ -74,38 +74,22 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           command: pages deploy dist/registry --project-name=shaderbase-registry
 
-  deploy-web:
-    needs: [check, deploy-registry]
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.8
-
-      - name: Install Root Dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Install Web App Dependencies
-        run: cd apps/web && bun install --frozen-lockfile
-
-      - name: Build Web App for Cloudflare Pages
-        run: cd apps/web && NITRO_PRESET=cloudflare-pages bun run build
-
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: pages deploy apps/web/.output/public --project-name=shaderbase-web
+  # Web app deployment is pending — SolidJS + TanStack Start + Cloudflare Workers
+  # has a known bundling issue (ssrStyleProperty not exported in worker mode).
+  # Tracking: https://github.com/TanStack/router/issues/5291
+  # Options: Railway (Node.js), or wait for Cloudflare Vite plugin SolidJS support.
+  # deploy-web:
+  #   needs: [check, deploy-registry]
+  #   if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: oven-sh/setup-bun@v2
+  #       with:
+  #         bun-version: 1.3.8
+  #     - run: bun install --frozen-lockfile
+  #     - run: cd apps/web && bun install --frozen-lockfile && bun run build
+  #     # Deploy to Railway or Fly.io when ready
 
   publish-cli:
     needs: check
