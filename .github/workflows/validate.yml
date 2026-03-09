@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - development
 
 jobs:
   check:
@@ -90,6 +91,34 @@ jobs:
   #     - run: bun install --frozen-lockfile
   #     - run: cd apps/web && bun install --frozen-lockfile && bun run build
   #     # Deploy to Railway or Fly.io when ready
+
+  deploy-mcp:
+    needs: check
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/development')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.8
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Deploy MCP Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: packages/mcp
+          command: deploy ${{ github.ref == 'refs/heads/development' && '--env development' || '--env=""' }}
 
   publish-cli:
     needs: check
