@@ -10,15 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ShadersRouteImport } from './routes/shaders'
+import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShadersIndexRouteImport } from './routes/shaders.index'
 import { Route as ShadersNameRouteImport } from './routes/shaders.$name'
+import { Route as ApiPlaygroundSplatRouteImport } from './routes/api/playground/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const ShadersRoute = ShadersRouteImport.update({
   id: '/shaders',
   path: '/shaders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlaygroundRoute = PlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -41,6 +48,11 @@ const ShadersNameRoute = ShadersNameRouteImport.update({
   path: '/$name',
   getParentRoute: () => ShadersRoute,
 } as any)
+const ApiPlaygroundSplatRoute = ApiPlaygroundSplatRouteImport.update({
+  id: '/api/playground/$',
+  path: '/api/playground/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -50,53 +62,72 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/playground': typeof PlaygroundRoute
   '/shaders': typeof ShadersRouteWithChildren
   '/shaders/$name': typeof ShadersNameRoute
   '/shaders/': typeof ShadersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/playground/$': typeof ApiPlaygroundSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/playground': typeof PlaygroundRoute
   '/shaders/$name': typeof ShadersNameRoute
   '/shaders': typeof ShadersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/playground/$': typeof ApiPlaygroundSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/playground': typeof PlaygroundRoute
   '/shaders': typeof ShadersRouteWithChildren
   '/shaders/$name': typeof ShadersNameRoute
   '/shaders/': typeof ShadersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/playground/$': typeof ApiPlaygroundSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/about'
+    | '/playground'
     | '/shaders'
     | '/shaders/$name'
     | '/shaders/'
     | '/api/auth/$'
+    | '/api/playground/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/shaders/$name' | '/shaders' | '/api/auth/$'
+  to:
+    | '/'
+    | '/about'
+    | '/playground'
+    | '/shaders/$name'
+    | '/shaders'
+    | '/api/auth/$'
+    | '/api/playground/$'
   id:
     | '__root__'
     | '/'
     | '/about'
+    | '/playground'
     | '/shaders'
     | '/shaders/$name'
     | '/shaders/'
     | '/api/auth/$'
+    | '/api/playground/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  PlaygroundRoute: typeof PlaygroundRoute
   ShadersRoute: typeof ShadersRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiPlaygroundSplatRoute: typeof ApiPlaygroundSplatRoute
 }
 
 declare module '@tanstack/solid-router' {
@@ -106,6 +137,13 @@ declare module '@tanstack/solid-router' {
       path: '/shaders'
       fullPath: '/shaders'
       preLoaderRoute: typeof ShadersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -136,6 +174,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof ShadersNameRouteImport
       parentRoute: typeof ShadersRoute
     }
+    '/api/playground/$': {
+      id: '/api/playground/$'
+      path: '/api/playground/$'
+      fullPath: '/api/playground/$'
+      preLoaderRoute: typeof ApiPlaygroundSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -162,8 +207,10 @@ const ShadersRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  PlaygroundRoute: PlaygroundRoute,
   ShadersRoute: ShadersRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiPlaygroundSplatRoute: ApiPlaygroundSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
