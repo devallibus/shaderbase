@@ -10,9 +10,15 @@ type PlaygroundLayoutProps = {
 
 export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
   const [activeTab, setActiveTab] = createSignal<'fragment' | 'vertex'>('fragment')
-  const [vertexSource, setVertexSource] = createSignal(props.session.vertexSource)
-  const [fragmentSource, setFragmentSource] = createSignal(props.session.fragmentSource)
-  const [tslSource, setTslSource] = createSignal(props.session.tslSource ?? '')
+  const [vertexSource, setVertexSource] = createSignal(
+    props.session.language === 'glsl' ? props.session.vertexSource : '',
+  )
+  const [fragmentSource, setFragmentSource] = createSignal(
+    props.session.language === 'glsl' ? props.session.fragmentSource : '',
+  )
+  const [tslSource, setTslSource] = createSignal(
+    props.session.language === 'tsl' ? props.session.tslSource : '',
+  )
   const [errors, setErrors] = createSignal<string[]>(props.session.compilationErrors)
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -27,14 +33,15 @@ export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
       try {
         const data = JSON.parse(e.data) as {
           language: string
-          vertexSource: string
-          fragmentSource: string
-          tslSource: string | null
+          vertexSource?: string
+          fragmentSource?: string
+          tslSource?: string
         }
-        setVertexSource(data.vertexSource)
-        setFragmentSource(data.fragmentSource)
-        if (data.tslSource !== null && data.tslSource !== undefined) {
-          setTslSource(data.tslSource)
+        if (data.language === 'glsl') {
+          if (data.vertexSource !== undefined) setVertexSource(data.vertexSource)
+          if (data.fragmentSource !== undefined) setFragmentSource(data.fragmentSource)
+        } else if (data.language === 'tsl') {
+          if (data.tslSource !== undefined) setTslSource(data.tslSource)
         }
       } catch {
         // Ignore malformed events

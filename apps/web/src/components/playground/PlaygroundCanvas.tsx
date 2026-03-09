@@ -6,7 +6,7 @@ type PlaygroundCanvasProps = {
   vertexSource: string
   fragmentSource: string
   pipeline: string
-  language: string
+  language: 'glsl' | 'tsl'
   onError: (errors: string[]) => void
   onScreenshotReady: (base64: string) => void
 }
@@ -33,18 +33,18 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
   const [initError, setInitError] = createSignal('')
 
   onMount(async () => {
+    // TSL preview not yet implemented — show placeholder
+    if (props.language === 'tsl') {
+      setLoading(false)
+      return
+    }
+
     let THREE: THREE
     try {
       THREE = await import('three')
       threeModule = THREE
     } catch {
       setInitError('Failed to load 3D engine')
-      setLoading(false)
-      return
-    }
-
-    // TSL preview not yet implemented — show placeholder
-    if (props.language === 'tsl') {
       setLoading(false)
       return
     }

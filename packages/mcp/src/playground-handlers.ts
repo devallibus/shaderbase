@@ -29,7 +29,7 @@ export async function handleCreatePlayground(
   },
   env: PlaygroundEnv,
   fetchFn: (input: string | URL | Request, init?: RequestInit) => Promise<Response> = fetch,
-): Promise<{ sessionId: string; url: string }> {
+): Promise<{ sessionId: string; url: string; previewAvailable: boolean }> {
   const response = await fetchFn(`${env.webAppUrl}/api/playground/create`, {
     method: "POST",
     headers: authHeaders(env),
@@ -41,12 +41,14 @@ export async function handleCreatePlayground(
     throw new Error(`Failed to create playground session: ${response.status} ${body}`);
   }
 
-  return (await response.json()) as { sessionId: string; url: string };
+  return (await response.json()) as { sessionId: string; url: string; previewAvailable: boolean };
 }
 
 // ---------------------------------------------------------------------------
 // update_shader
 // ---------------------------------------------------------------------------
+
+export type StructuredError = { kind: string; message: string };
 
 export async function handleUpdateShader(
   args: {
@@ -59,8 +61,10 @@ export async function handleUpdateShader(
   fetchFn: (input: string | URL | Request, init?: RequestInit) => Promise<Response> = fetch,
 ): Promise<{
   compilationErrors: string[];
+  structuredErrors: StructuredError[];
   screenshotBase64: string | null;
   browserConnected: boolean;
+  previewAvailable: boolean;
 }> {
   const { sessionId, ...shaderUpdate } = args;
   const response = await fetchFn(`${env.webAppUrl}/api/playground/${sessionId}/update`, {
@@ -76,8 +80,10 @@ export async function handleUpdateShader(
 
   return (await response.json()) as {
     compilationErrors: string[];
+    structuredErrors: StructuredError[];
     screenshotBase64: string | null;
     browserConnected: boolean;
+    previewAvailable: boolean;
   };
 }
 
@@ -89,7 +95,7 @@ export async function handleGetPreview(
   args: { sessionId: string },
   env: PlaygroundEnv,
   fetchFn: (input: string | URL | Request, init?: RequestInit) => Promise<Response> = fetch,
-): Promise<{ screenshotBase64: string | null }> {
+): Promise<{ screenshotBase64: string | null; language: string }> {
   const response = await fetchFn(`${env.webAppUrl}/api/playground/${args.sessionId}/state`, {
     method: "GET",
     headers: { Authorization: `Bearer ${env.playgroundSecret}` },
@@ -100,8 +106,8 @@ export async function handleGetPreview(
     throw new Error(`Failed to get preview: ${response.status} ${body}`);
   }
 
-  const session = (await response.json()) as { screenshotBase64: string | null };
-  return { screenshotBase64: session.screenshotBase64 };
+  const session = (await response.json()) as { screenshotBase64: string | null; language: string };
+  return { screenshotBase64: session.screenshotBase64, language: session.language };
 }
 
 // ---------------------------------------------------------------------------
@@ -112,7 +118,7 @@ export async function handleGetErrors(
   args: { sessionId: string },
   env: PlaygroundEnv,
   fetchFn: (input: string | URL | Request, init?: RequestInit) => Promise<Response> = fetch,
-): Promise<{ errors: string[] }> {
+): Promise<{ errors: string[]; structuredErrors: StructuredError[] }> {
   const response = await fetchFn(`${env.webAppUrl}/api/playground/${args.sessionId}/errors`, {
     method: "GET",
     headers: { Authorization: `Bearer ${env.playgroundSecret}` },
@@ -123,5 +129,5 @@ export async function handleGetErrors(
     throw new Error(`Failed to get errors: ${response.status} ${body}`);
   }
 
-  return (await response.json()) as { errors: string[] };
+  return (await response.json()) as { errors: string[]; structuredErrors: StructuredError[] };
 }

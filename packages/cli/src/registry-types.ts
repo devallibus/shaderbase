@@ -80,6 +80,7 @@ export const registryRecipeBundleSchema = z.object({
   code: z.string().min(1),
   placeholders: z.array(registryRecipePlaceholderSchema),
   requirements: z.array(z.string().min(1)),
+  relPath: z.string().min(1).optional(),
 });
 
 export type RegistryRecipeBundle = z.infer<typeof registryRecipeBundleSchema>;

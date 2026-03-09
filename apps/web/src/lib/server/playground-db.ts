@@ -34,6 +34,48 @@ const DEFAULT_UNIFORMS: UniformDefinition[] = [
   { name: 'uTime', type: 'float', defaultValue: 0, description: 'Elapsed time in seconds' },
 ]
 
+function validateCreateSessionRequest(opts?: CreateSessionRequest) {
+  const language = opts?.language ?? 'glsl'
+
+  if (language === 'glsl') {
+    if ('tslSource' in (opts ?? {}) && opts?.tslSource !== undefined) {
+      throw new Error('GLSL sessions do not accept tslSource')
+    }
+    return
+  }
+
+  if ('vertexSource' in (opts ?? {}) && opts?.vertexSource !== undefined) {
+    throw new Error('TSL sessions do not accept vertexSource')
+  }
+
+  if ('fragmentSource' in (opts ?? {}) && opts?.fragmentSource !== undefined) {
+    throw new Error('TSL sessions do not accept fragmentSource')
+  }
+
+  if (opts?.pipeline === 'postprocessing') {
+    throw new Error('TSL sessions do not support the postprocessing pipeline')
+  }
+}
+
+function validateUpdateShaderRequest(
+  update: { vertexSource?: string; fragmentSource?: string; tslSource?: string },
+  sessionLanguage: 'glsl' | 'tsl',
+) {
+  if (sessionLanguage === 'glsl' && update.tslSource !== undefined) {
+    throw new Error('GLSL sessions do not accept tslSource updates')
+  }
+
+  if (sessionLanguage === 'tsl') {
+    if (update.vertexSource !== undefined) {
+      throw new Error('TSL sessions do not accept vertexSource updates')
+    }
+
+    if (update.fragmentSource !== undefined) {
+      throw new Error('TSL sessions do not accept fragmentSource updates')
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Database setup
 // ---------------------------------------------------------------------------
@@ -178,12 +220,8 @@ type SessionRow = {
 }
 
 function rowToSession(row: SessionRow): PlaygroundSession {
-  return {
+  const base = {
     id: row.id,
-    language: row.shader_language as 'glsl' | 'tsl',
-    vertexSource: row.vertex_source,
-    fragmentSource: row.fragment_source,
-    tslSource: row.tsl_source,
     uniforms: JSON.parse(row.uniforms_json) as UniformDefinition[],
     uniformValues: row.uniform_values_json ? (JSON.parse(row.uniform_values_json) as Record<string, unknown>) : null,
     pipeline: row.pipeline,
@@ -199,6 +237,11 @@ function rowToSession(row: SessionRow): PlaygroundSession {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
+
+  if (row.shader_language === 'tsl') {
+    return { ...base, language: 'tsl', tslSource: row.tsl_source ?? '' }
+  }
+  return { ...base, language: 'glsl', vertexSource: row.vertex_source, fragmentSource: row.fragment_source }
 }
 
 // ---------------------------------------------------------------------------
@@ -206,13 +249,23 @@ function rowToSession(row: SessionRow): PlaygroundSession {
 // ---------------------------------------------------------------------------
 
 export function createSession(opts?: CreateSessionRequest): { id: string; session: PlaygroundSession } {
+  validateCreateSessionRequest(opts)
+
   const id = randomUUID()
   const language = opts?.language ?? 'glsl'
-  const vertexSource = opts?.vertexSource ?? DEFAULT_VERTEX
-  const fragmentSource = opts?.fragmentSource ?? DEFAULT_FRAGMENT
-  const tslSource = opts?.tslSource ?? null
   const uniforms = opts?.uniforms ?? DEFAULT_UNIFORMS
   const pipeline = opts?.pipeline ?? 'surface'
+
+  // Language-specific source defaults — TSL sessions don't carry GLSL payloads
+  const vertexSource = language === 'glsl'
+    ? ((opts as { vertexSource?: string })?.vertexSource ?? DEFAULT_VERTEX)
+    : ''
+  const fragmentSource = language === 'glsl'
+    ? ((opts as { fragmentSource?: string })?.fragmentSource ?? DEFAULT_FRAGMENT)
+    : ''
+  const tslSource = language === 'tsl'
+    ? ((opts as { tslSource?: string })?.tslSource ?? null)
+    : null
 
   db.prepare(
     `INSERT INTO playground_sessions (id, shader_language, vertex_source, fragment_source, tsl_source, uniforms_json, pipeline)
@@ -231,21 +284,30 @@ export function getSession(id: string): PlaygroundSession | null {
   return rowToSession(row)
 }
 
-export function updateShader(id: string, update: { vertexSource?: string; fragmentSource?: string; tslSource?: string }): void {
+export function updateShader(
+  id: string,
+  update: { vertexSource?: string; fragmentSource?: string; tslSource?: string },
+  sessionLanguage: 'glsl' | 'tsl',
+): void {
+  validateUpdateShaderRequest(update, sessionLanguage)
+
   const parts: string[] = []
   const values: unknown[] = []
 
-  if (update.vertexSource !== undefined) {
-    parts.push('vertex_source = ?')
-    values.push(update.vertexSource)
-  }
-  if (update.fragmentSource !== undefined) {
-    parts.push('fragment_source = ?')
-    values.push(update.fragmentSource)
-  }
-  if (update.tslSource !== undefined) {
-    parts.push('tsl_source = ?')
-    values.push(update.tslSource)
+  if (sessionLanguage === 'glsl') {
+    if (update.vertexSource !== undefined) {
+      parts.push('vertex_source = ?')
+      values.push(update.vertexSource)
+    }
+    if (update.fragmentSource !== undefined) {
+      parts.push('fragment_source = ?')
+      values.push(update.fragmentSource)
+    }
+  } else {
+    if (update.tslSource !== undefined) {
+      parts.push('tsl_source = ?')
+      values.push(update.tslSource)
+    }
   }
 
   if (parts.length === 0) return
@@ -258,13 +320,10 @@ export function updateShader(id: string, update: { vertexSource?: string; fragme
   // Push SSE update to connected browsers
   const session = getSession(id)
   if (session) {
-    pushSSEEvent(id, {
-      type: 'shader_update',
-      language: session.language,
-      vertexSource: session.vertexSource,
-      fragmentSource: session.fragmentSource,
-      tslSource: session.tslSource,
-    })
+    const event: PlaygroundSSEEvent = session.language === 'tsl'
+      ? { type: 'shader_update', language: 'tsl', tslSource: session.tslSource }
+      : { type: 'shader_update', language: 'glsl', vertexSource: session.vertexSource, fragmentSource: session.fragmentSource }
+    pushSSEEvent(id, event)
   }
 }
 

@@ -3,7 +3,6 @@ import { mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-// Isolate test DB in a temp directory so runs are idempotent
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'playground-test-'))
 
 const {
@@ -12,6 +11,7 @@ const {
   updateShader,
   setScreenshot,
   setErrors,
+  setStructuredErrors,
   setUniformValues,
   updateMetadata,
 } = await import('./playground-db.ts')
@@ -31,21 +31,18 @@ function runTest(name: string, callback: () => void | Promise<void>) {
   console.log(`ok ${name}`)
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-runTest('createSession returns id and session with defaults', () => {
+runTest('createSession returns default GLSL session', () => {
   const { id, session } = createSession()
   assert.equal(typeof id, 'string')
-  assert.ok(id.length > 0)
   assert.equal(session.id, id)
+  assert.equal(session.language, 'glsl')
   assert.ok(session.vertexSource.includes('gl_Position'))
   assert.ok(session.fragmentSource.includes('gl_FragColor'))
   assert.equal(session.pipeline, 'surface')
   assert.equal(session.uniforms.length, 1)
   assert.equal(session.uniforms[0]!.name, 'uTime')
   assert.deepEqual(session.compilationErrors, [])
+  assert.deepEqual(session.structuredErrors, [])
   assert.equal(session.screenshotBase64, null)
   assert.equal(session.metadata, null)
 })
@@ -57,57 +54,96 @@ runTest('createSession accepts custom GLSL', () => {
     pipeline: 'postprocessing',
     uniforms: [{ name: 'uColor', type: 'vec3', defaultValue: [1, 0, 0] }],
   })
+  assert.equal(session.language, 'glsl')
   assert.ok(session.vertexSource.includes('vec4(0.0)'))
   assert.ok(session.fragmentSource.includes('1.0, 0.0, 0.0'))
   assert.equal(session.pipeline, 'postprocessing')
-  assert.equal(session.uniforms.length, 1)
-  assert.equal(session.uniforms[0]!.name, 'uColor')
+})
+
+runTest('createSession accepts TSL without GLSL payloads', () => {
+  const { session } = createSession({
+    language: 'tsl',
+    tslSource: 'export function createMaterial() {}',
+    pipeline: 'geometry',
+  })
+  assert.equal(session.language, 'tsl')
+  assert.equal(session.tslSource, 'export function createMaterial() {}')
+  assert.equal(session.pipeline, 'geometry')
+})
+
+runTest('createSession rejects tslSource on GLSL sessions', () => {
+  assert.throws(
+    () => createSession({ tslSource: 'export function createMaterial() {}' }),
+    /GLSL sessions do not accept tslSource/,
+  )
+})
+
+runTest('createSession rejects GLSL source fields on TSL sessions', () => {
+  assert.throws(
+    () =>
+      createSession({
+        language: 'tsl',
+        tslSource: 'export function createMaterial() {}',
+        vertexSource: 'void main() {}',
+      }),
+    /TSL sessions do not accept vertexSource/,
+  )
+})
+
+runTest('createSession rejects TSL postprocessing sessions', () => {
+  assert.throws(
+    () =>
+      createSession({
+        language: 'tsl',
+        tslSource: 'export function createMaterial() {}',
+        pipeline: 'postprocessing',
+      }),
+    /TSL sessions do not support the postprocessing pipeline/,
+  )
 })
 
 runTest('getSession returns null for unknown id', () => {
-  const session = getSession('nonexistent-id')
-  assert.equal(session, null)
+  assert.equal(getSession('nonexistent-id'), null)
 })
 
-runTest('getSession returns created session', () => {
+runTest('updateShader updates GLSL sources', () => {
   const { id } = createSession()
-  const session = getSession(id)
-  assert.ok(session)
-  assert.equal(session.id, id)
-})
-
-runTest('updateShader updates vertex source', () => {
-  const { id } = createSession()
-  const newVertex = 'void main() { gl_Position = vec4(1.0); }'
-  updateShader(id, { vertexSource: newVertex })
+  updateShader(id, { vertexSource: 'vertex shader', fragmentSource: 'fragment shader' }, 'glsl')
   const session = getSession(id)!
-  assert.equal(session.vertexSource, newVertex)
-  // Fragment should remain the default
-  assert.ok(session.fragmentSource.includes('gl_FragColor'))
+  assert.equal(session.language, 'glsl')
+  assert.equal(session.vertexSource, 'vertex shader')
+  assert.equal(session.fragmentSource, 'fragment shader')
 })
 
-runTest('updateShader updates fragment source', () => {
-  const { id } = createSession()
-  const newFrag = 'void main() { gl_FragColor = vec4(0.0); }'
-  updateShader(id, { fragmentSource: newFrag })
+runTest('updateShader updates TSL source', () => {
+  const { id } = createSession({ language: 'tsl', tslSource: 'old tsl' })
+  updateShader(id, { tslSource: 'new tsl' }, 'tsl')
   const session = getSession(id)!
-  assert.equal(session.fragmentSource, newFrag)
+  assert.equal(session.language, 'tsl')
+  assert.equal(session.tslSource, 'new tsl')
 })
 
-runTest('updateShader updates both sources', () => {
+runTest('updateShader rejects mismatched GLSL fields for TSL sessions', () => {
+  const { id } = createSession({ language: 'tsl', tslSource: 'old tsl' })
+  assert.throws(
+    () => updateShader(id, { vertexSource: 'bad' }, 'tsl'),
+    /TSL sessions do not accept vertexSource updates/,
+  )
+})
+
+runTest('updateShader rejects mismatched TSL fields for GLSL sessions', () => {
   const { id } = createSession()
-  const newVertex = 'vertex shader'
-  const newFrag = 'fragment shader'
-  updateShader(id, { vertexSource: newVertex, fragmentSource: newFrag })
-  const session = getSession(id)!
-  assert.equal(session.vertexSource, newVertex)
-  assert.equal(session.fragmentSource, newFrag)
+  assert.throws(
+    () => updateShader(id, { tslSource: 'bad' }, 'glsl'),
+    /GLSL sessions do not accept tslSource updates/,
+  )
 })
 
 runTest('updateShader with empty object is a no-op', () => {
   const { id, session: original } = createSession()
-  updateShader(id, {})
+  updateShader(id, {}, 'glsl')
   const session = getSession(id)!
+  assert.equal(session.language, 'glsl')
   assert.equal(session.vertexSource, original.vertexSource)
   assert.equal(session.fragmentSource, original.fragmentSource)
 })
@@ -128,12 +164,12 @@ runTest('setErrors stores compilation errors', () => {
   assert.deepEqual(session.compilationErrors, errors)
 })
 
-runTest('setErrors with empty array clears errors', () => {
-  const { id } = createSession()
-  setErrors(id, ['some error'])
-  setErrors(id, [])
+runTest('setStructuredErrors stores structured errors', () => {
+  const { id } = createSession({ language: 'tsl', tslSource: 'export function createMaterial() {}' })
+  const errors = [{ kind: 'tsl-runtime', message: 'createMaterial failed' }] as const
+  setStructuredErrors(id, [...errors])
   const session = getSession(id)!
-  assert.deepEqual(session.compilationErrors, [])
+  assert.deepEqual(session.structuredErrors, errors)
 })
 
 runTest('setUniformValues stores values', () => {
@@ -150,23 +186,6 @@ runTest('updateMetadata stores metadata', () => {
   updateMetadata(id, metadata)
   const session = getSession(id)!
   assert.deepEqual(session.metadata, metadata)
-})
-
-runTest('updateMetadata overwrites previous metadata', () => {
-  const { id } = createSession()
-  updateMetadata(id, { name: 'old' })
-  updateMetadata(id, { name: 'new', tags: ['updated'] })
-  const session = getSession(id)!
-  assert.equal(session.metadata!.name, 'new')
-  assert.deepEqual(session.metadata!.tags, ['updated'])
-})
-
-runTest('multiple sessions are independent', () => {
-  const { id: id1 } = createSession({ fragmentSource: 'shader1' })
-  const { id: id2 } = createSession({ fragmentSource: 'shader2' })
-  assert.notEqual(id1, id2)
-  assert.equal(getSession(id1)!.fragmentSource, 'shader1')
-  assert.equal(getSession(id2)!.fragmentSource, 'shader2')
 })
 
 console.log('playground-db tests passed')

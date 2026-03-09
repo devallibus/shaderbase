@@ -60,20 +60,53 @@ async function main() {
     const mockFetch = createMockFetch({
       "/api/playground/create": {
         status: 200,
-        body: { sessionId: "abc-123", url: "https://test.shaderbase.com/playground?session=abc-123" },
+        body: {
+          sessionId: "abc-123",
+          url: "https://test.shaderbase.com/playground?session=abc-123",
+          previewAvailable: true,
+        },
       },
     });
 
     const result = await handleCreatePlayground({}, env, mockFetch);
     assert.equal(result.sessionId, "abc-123");
     assert.ok(result.url.includes("abc-123"));
+    assert.equal(result.previewAvailable, true);
+  });
+
+  await runTest("create_playground returns previewAvailable flag", async () => {
+    const mockFetch = createMockFetch({
+      "/api/playground/create": {
+        status: 200,
+        body: { sessionId: "glsl-1", url: "https://test.shaderbase.com/playground?session=glsl-1", previewAvailable: true },
+      },
+    });
+
+    const result = await handleCreatePlayground({}, env, mockFetch);
+    assert.equal(result.previewAvailable, true);
+  });
+
+  await runTest("create_playground TSL session returns previewAvailable false", async () => {
+    const mockFetch = createMockFetch({
+      "/api/playground/create": {
+        status: 200,
+        body: { sessionId: "tsl-1", url: "https://test.shaderbase.com/playground?session=tsl-1", previewAvailable: false },
+      },
+    });
+
+    const result = await handleCreatePlayground({ language: "tsl", tslSource: "// tsl" }, env, mockFetch);
+    assert.equal(result.previewAvailable, false);
   });
 
   await runTest("create_playground forwards custom GLSL", async () => {
     let capturedBody: string | undefined;
     const mockFetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
       capturedBody = init?.body as string;
-      return new Response(JSON.stringify({ sessionId: "xyz", url: "http://test/playground?session=xyz" }), {
+      return new Response(JSON.stringify({
+        sessionId: "xyz",
+        url: "http://test/playground?session=xyz",
+        previewAvailable: true,
+      }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
@@ -97,8 +130,10 @@ async function main() {
         status: 200,
         body: {
           compilationErrors: [],
+          structuredErrors: [],
           screenshotBase64: "data:image/png;base64,abc",
           browserConnected: true,
+          previewAvailable: true,
         },
       },
     });
@@ -109,8 +144,35 @@ async function main() {
       mockFetch,
     );
     assert.deepEqual(result.compilationErrors, []);
+    assert.deepEqual(result.structuredErrors, []);
     assert.equal(result.screenshotBase64, "data:image/png;base64,abc");
     assert.equal(result.browserConnected, true);
+    assert.equal(result.previewAvailable, true);
+  });
+
+  await runTest("update_shader returns structured errors and previewAvailable", async () => {
+    const mockFetch = createMockFetch({
+      "/api/playground/tsl-sess/update": {
+        status: 200,
+        body: {
+          compilationErrors: [],
+          structuredErrors: [{ kind: "tsl-parse", message: "Unexpected token at line 3" }],
+          screenshotBase64: null,
+          browserConnected: false,
+          previewAvailable: false,
+        },
+      },
+    });
+
+    const result = await handleUpdateShader(
+      { sessionId: "tsl-sess", tslSource: "bad code" },
+      env,
+      mockFetch,
+    );
+    assert.equal(result.structuredErrors.length, 1);
+    assert.equal(result.structuredErrors[0]!.kind, "tsl-parse");
+    assert.equal(result.previewAvailable, false);
+    assert.equal(result.screenshotBase64, null);
   });
 
   await runTest("update_shader throws on failure", async () => {
@@ -127,53 +189,74 @@ async function main() {
     );
   });
 
-  await runTest("get_preview returns screenshot", async () => {
+  await runTest("get_preview returns screenshot and language", async () => {
     const mockFetch = createMockFetch({
       "/api/playground/sess-2/state": {
         status: 200,
-        body: { screenshotBase64: "data:image/png;base64,screenshot" },
+        body: { screenshotBase64: "data:image/png;base64,screenshot", language: "glsl" },
       },
     });
 
     const result = await handleGetPreview({ sessionId: "sess-2" }, env, mockFetch);
     assert.equal(result.screenshotBase64, "data:image/png;base64,screenshot");
+    assert.equal(result.language, "glsl");
   });
 
-  await runTest("get_preview returns null when no screenshot", async () => {
+  await runTest("get_preview returns null screenshot for GLSL session", async () => {
     const mockFetch = createMockFetch({
       "/api/playground/sess-3/state": {
         status: 200,
-        body: { screenshotBase64: null },
+        body: { screenshotBase64: null, language: "glsl" },
       },
     });
 
     const result = await handleGetPreview({ sessionId: "sess-3" }, env, mockFetch);
     assert.equal(result.screenshotBase64, null);
+    assert.equal(result.language, "glsl");
   });
 
-  await runTest("get_errors returns error list", async () => {
+  await runTest("get_preview returns language tsl for TSL sessions", async () => {
+    const mockFetch = createMockFetch({
+      "/api/playground/tsl-prev/state": {
+        status: 200,
+        body: { screenshotBase64: null, language: "tsl" },
+      },
+    });
+
+    const result = await handleGetPreview({ sessionId: "tsl-prev" }, env, mockFetch);
+    assert.equal(result.screenshotBase64, null);
+    assert.equal(result.language, "tsl");
+  });
+
+  await runTest("get_errors returns error list with structured errors", async () => {
     const mockFetch = createMockFetch({
       "/api/playground/sess-4/errors": {
         status: 200,
-        body: { errors: ["ERROR: 0:5: undeclared identifier"] },
+        body: {
+          errors: ["ERROR: 0:5: undeclared identifier"],
+          structuredErrors: [{ kind: "glsl-compile", message: "ERROR: 0:5: undeclared identifier" }],
+        },
       },
     });
 
     const result = await handleGetErrors({ sessionId: "sess-4" }, env, mockFetch);
     assert.equal(result.errors.length, 1);
     assert.ok(result.errors[0]!.includes("undeclared"));
+    assert.equal(result.structuredErrors.length, 1);
+    assert.equal(result.structuredErrors[0]!.kind, "glsl-compile");
   });
 
-  await runTest("get_errors returns empty array when no errors", async () => {
+  await runTest("get_errors returns empty arrays when no errors", async () => {
     const mockFetch = createMockFetch({
       "/api/playground/sess-5/errors": {
         status: 200,
-        body: { errors: [] },
+        body: { errors: [], structuredErrors: [] },
       },
     });
 
     const result = await handleGetErrors({ sessionId: "sess-5" }, env, mockFetch);
     assert.deepEqual(result.errors, []);
+    assert.deepEqual(result.structuredErrors, []);
   });
 
   console.log("playground-handlers tests passed");

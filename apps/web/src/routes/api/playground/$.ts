@@ -40,6 +40,13 @@ function unauthorizedResponse(): Response {
   })
 }
 
+function badRequestResponse(message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 400,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -80,12 +87,17 @@ async function handlePlayground(request: Request): Promise<Response> {
   if (segments[0] === 'create' && request.method === 'POST') {
     if (!isAuthorized(request)) return unauthorizedResponse()
     const body = (await request.json().catch(() => ({}))) as CreateSessionRequest
-    const { id } = createSession(body)
-    const response: CreateSessionResponse = {
-      sessionId: id,
-      url: `${WEB_URL}/playground?session=${id}`,
+    try {
+      const created = createSession(body)
+      const response: CreateSessionResponse = {
+        sessionId: created.id,
+        url: `${WEB_URL}/playground?session=${created.id}`,
+        previewAvailable: created.session.language === 'glsl',
+      }
+      return jsonResponse(response, 201)
+    } catch (error) {
+      return badRequestResponse(error instanceof Error ? error.message : 'Invalid session request')
     }
-    return jsonResponse(response, 201)
   }
 
   // Routes that require a sessionId: /api/playground/:sessionId/:action
@@ -150,12 +162,18 @@ async function handlePlayground(request: Request): Promise<Response> {
     if (!session) return jsonResponse({ error: 'Session not found' }, 404)
 
     const body = (await request.json().catch(() => ({}))) as UpdateShaderRequest
-    updateShader(sessionId, body)
+    try {
+      updateShader(sessionId, body, session.language)
+    } catch (error) {
+      return badRequestResponse(error instanceof Error ? error.message : 'Invalid shader update request')
+    }
 
-    // Wait for screenshot from browser (with timeout)
+    const previewAvailable = session.language === 'glsl'
+
+    // Wait for screenshot from browser — only for GLSL (TSL preview not yet implemented)
     const browserConnected = hasSSEConnections(sessionId)
     let screenshotBase64: string | null = null
-    if (browserConnected) {
+    if (browserConnected && previewAvailable) {
       screenshotBase64 = await waitForScreenshot(sessionId, SCREENSHOT_WAIT_MS)
     }
 
@@ -167,6 +185,7 @@ async function handlePlayground(request: Request): Promise<Response> {
       structuredErrors: updated?.structuredErrors ?? [],
       screenshotBase64,
       browserConnected,
+      previewAvailable,
     }
     return jsonResponse(response)
   }
@@ -192,9 +211,7 @@ async function handlePlayground(request: Request): Promise<Response> {
       structuredErrors?: PlaygroundError[]
     }
     setErrors(sessionId, body.errors ?? [])
-    if (body.structuredErrors) {
-      setStructuredErrors(sessionId, body.structuredErrors)
-    }
+    setStructuredErrors(sessionId, body.structuredErrors ?? [])
     return jsonResponse({ status: 'ok' })
   }
 

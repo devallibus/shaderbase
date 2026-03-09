@@ -165,6 +165,79 @@ runTest("writes all recipes when no environment specified", () => {
   }
 });
 
+runTest("writes TSL shader with recipe in subdirectory using relPath", () => {
+  const tmpDir = mkdtempSync(join(tmpdir(), "shaderbase-test-"));
+  try {
+    const tslBundle: RegistryShaderBundle = {
+      name: "tsl-gradient-wave",
+      displayName: "TSL Gradient Wave",
+      version: "1.0.0",
+      summary: "Animated gradient wave using NodeMaterial",
+      tags: ["tsl", "gradient"],
+      category: "color",
+      pipeline: "surface",
+      stage: "fragment",
+      environments: ["three"],
+      renderers: ["webgpu"],
+      sourceKind: "original",
+      uniforms: [],
+      language: "tsl",
+      description: "A TSL shader.",
+      author: { name: "ShaderBase" },
+      license: "MIT",
+      compatibility: {
+        three: ">=0.170.0",
+        renderers: ["webgpu"],
+        material: "node-material",
+        environments: ["three"],
+      },
+      capabilityProfile: {
+        pipeline: "surface",
+        stage: "fragment",
+        requires: [],
+        outputs: ["color"],
+      },
+      uniformsFull: [],
+      inputs: [],
+      outputs: [{ name: "color", kind: "color", description: "Output color" }],
+      tslSource: "export function createMaterial() { /* TSL */ }",
+      recipes: {
+        three: {
+          exportName: "createTslGradientWaveMaterial",
+          summary: "Creates a TSL gradient wave material",
+          code: "import { createMaterial } from '../source';\nexport function createTslGradientWaveMaterial() { return createMaterial(); }",
+          placeholders: [],
+          requirements: ["three-scene", "webgpu-renderer"],
+          relPath: "recipes/three.ts",
+        },
+      },
+      provenance: {
+        sourceKind: "original",
+        sources: [],
+        attribution: { summary: "Original shader by ShaderBase contributors." },
+      },
+    };
+
+    const paths = writeShaderFiles(tslBundle, { targetDir: tmpDir, environment: "three" });
+
+    const shaderDir = join(tmpDir, "tsl-gradient-wave");
+    // Source file at root
+    assert.ok(existsSync(join(shaderDir, "source.ts")));
+    // Recipe in subdirectory — preserving import paths
+    assert.ok(existsSync(join(shaderDir, "recipes", "three.ts")));
+    // Recipe should NOT be at root
+    assert.ok(!existsSync(join(shaderDir, "three.ts")));
+
+    // Verify the import path works (../source resolves from recipes/)
+    const recipeCode = readFileSync(join(shaderDir, "recipes", "three.ts"), "utf-8");
+    assert.ok(recipeCode.includes("from '../source'"));
+
+    assert.equal(paths.length, 2); // source.ts + recipes/three.ts
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 runTest("throws if shader directory already exists", () => {
   const tmpDir = mkdtempSync(join(tmpdir(), "shaderbase-test-"));
   try {

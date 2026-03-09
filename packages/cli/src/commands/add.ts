@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { RegistryShaderBundle } from "../registry-types.ts";
 
 // ---------------------------------------------------------------------------
@@ -12,7 +12,7 @@ export type WriteOptions = {
 };
 
 // ---------------------------------------------------------------------------
-// Recipe target → file name mapping
+// Fallback recipe file names (used when relPath is not in the bundle)
 // ---------------------------------------------------------------------------
 
 const RECIPE_FILE_NAMES: Record<string, string> = {
@@ -62,10 +62,13 @@ export function writeShaderFiles(
     const recipe = bundle.recipes[key];
     if (!recipe) continue;
 
-    const fileName = RECIPE_FILE_NAMES[key];
-    if (!fileName) continue;
+    // Use relPath from bundle if available, otherwise fall back to flat filename
+    const relFile = recipe.relPath ?? RECIPE_FILE_NAMES[key];
+    if (!relFile) continue;
 
-    const recipePath = join(shaderDir, fileName);
+    const recipePath = join(shaderDir, relFile);
+    // Ensure subdirectories exist (e.g. recipes/)
+    mkdirSync(dirname(recipePath), { recursive: true });
     writeFileSync(recipePath, recipe.code, "utf-8");
     writtenPaths.push(recipePath);
   }

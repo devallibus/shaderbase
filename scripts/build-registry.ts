@@ -55,6 +55,7 @@ export async function buildRegistry({ shadersRoot, outputDir }: BuildRegistryOpt
           ...(p.example !== undefined ? { example: p.example } : {}),
         })),
         requirements: recipe.requirements,
+        relPath: recipe.path,
       };
     }
 
