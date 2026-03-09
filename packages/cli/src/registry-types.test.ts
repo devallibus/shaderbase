@@ -35,12 +35,14 @@ function makeValidIndexEntry() {
       { name: "uColor", type: "vec3" },
       { name: "uRadius", type: "float" },
     ],
+    language: "glsl",
   };
 }
 
 function makeValidShaderBundle() {
   return {
     ...makeValidIndexEntry(),
+    language: "glsl" as const,
     description: "A radial gradient shader that renders a smooth circular gradient.",
     author: { name: "ShaderBase" },
     license: "MIT",
@@ -107,6 +109,59 @@ function makeValidShaderBundle() {
   };
 }
 
+function makeValidTslBundle() {
+  return {
+    ...makeValidIndexEntry(),
+    language: "tsl" as const,
+    description: "A TSL noise shader that generates procedural noise.",
+    author: { name: "ShaderBase" },
+    license: "MIT",
+    compatibility: {
+      three: ">=0.160.0",
+      renderers: ["webgpu"],
+      material: "shader-material",
+      environments: ["three"],
+    },
+    capabilityProfile: {
+      pipeline: "surface",
+      stage: "fragment",
+      requires: ["uv"],
+      outputs: ["color"],
+    },
+    uniformsFull: [
+      {
+        name: "uScale",
+        type: "float",
+        defaultValue: 1.0,
+        description: "Noise scale",
+      },
+    ],
+    inputs: [
+      { name: "uv", kind: "uv", description: "UV coordinates", required: true },
+    ],
+    outputs: [
+      { name: "fragColor", kind: "color", description: "Output fragment color" },
+    ],
+    tslSource: "import { uniform, uv, vec4 } from 'three/tsl';\nexport const noiseMaterial = () => vec4(uv(), 0.0, 1.0);",
+    recipes: {
+      three: {
+        exportName: "createNoiseMaterial",
+        summary: "Creates a TSL noise material",
+        code: "import { noiseMaterial } from './noise.tsl.ts';\nexport function createNoiseMaterial() { return noiseMaterial(); }",
+        placeholders: [],
+        requirements: ["three-scene", "mesh"],
+      },
+    },
+    provenance: {
+      sourceKind: "original",
+      sources: [],
+      attribution: {
+        summary: "Original shader by ShaderBase contributors.",
+      },
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -134,8 +189,11 @@ runTest("validates a valid shader bundle", () => {
   const result = registryShaderBundleSchema.parse(bundle);
 
   assert.equal(result.name, "gradient-radial");
-  assert.equal(result.vertexSource.length > 0, true);
-  assert.equal(result.fragmentSource.length > 0, true);
+  assert.equal(result.language, "glsl");
+  if (result.language === "glsl") {
+    assert.equal(result.vertexSource.length > 0, true);
+    assert.equal(result.fragmentSource.length > 0, true);
+  }
   assert.equal(Object.keys(result.recipes).length, 1);
   assert.equal(result.provenance.sourceKind, "original");
 });
@@ -144,6 +202,27 @@ runTest("rejects bundle without vertexSource", () => {
   const bundle = makeValidShaderBundle();
   const { vertexSource: _, ...withoutVertex } = bundle;
   const result = registryShaderBundleSchema.safeParse(withoutVertex);
+
+  assert.equal(result.success, false);
+});
+
+runTest("validates a valid TSL shader bundle", () => {
+  const bundle = makeValidTslBundle();
+  const result = registryShaderBundleSchema.parse(bundle);
+
+  assert.equal(result.name, "gradient-radial");
+  assert.equal(result.language, "tsl");
+  if (result.language === "tsl") {
+    assert.equal(result.tslSource.length > 0, true);
+  }
+  assert.equal(Object.keys(result.recipes).length, 1);
+  assert.equal(result.provenance.sourceKind, "original");
+});
+
+runTest("rejects TSL bundle without tslSource", () => {
+  const bundle = makeValidTslBundle();
+  const { tslSource: _, ...withoutTsl } = bundle;
+  const result = registryShaderBundleSchema.safeParse(withoutTsl);
 
   assert.equal(result.success, false);
 });

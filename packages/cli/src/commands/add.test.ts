@@ -34,6 +34,7 @@ function makeMockBundle(): RegistryShaderBundle {
     renderers: ["webgl2"],
     sourceKind: "original",
     uniforms: [{ name: "uColor", type: "vec3" }],
+    language: "glsl",
     description: "A radial gradient shader that renders a smooth circular gradient.",
     author: { name: "ShaderBase" },
     license: "MIT",

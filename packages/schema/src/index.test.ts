@@ -104,4 +104,42 @@ runTest("rejects missing referenced files", () => {
   }
 });
 
+runTest("defaults language to glsl when missing", () => {
+  const manifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8")) as Record<string, unknown>;
+  delete manifest.language;
+
+  const result = shaderManifestSchema.safeParse(manifest);
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.language, "glsl");
+  }
+});
+
+runTest("validates a TSL manifest", () => {
+  const manifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8")) as Record<string, unknown>;
+  manifest.language = "tsl";
+  manifest.tslEntry = "source.ts";
+  manifest.compatibility = {
+    ...(manifest.compatibility as Record<string, unknown>),
+    renderers: ["webgpu"],
+    material: "node-material",
+  };
+  delete manifest.files;
+
+  const result = shaderManifestSchema.safeParse(manifest);
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.language, "tsl");
+  }
+});
+
+runTest("rejects TSL manifest without tslEntry", () => {
+  const manifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8")) as Record<string, unknown>;
+  manifest.language = "tsl";
+  delete manifest.files;
+
+  const result = shaderManifestSchema.safeParse(manifest);
+  assert.equal(result.success, false);
+});
+
 console.log("schema tests passed");

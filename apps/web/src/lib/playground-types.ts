@@ -18,14 +18,32 @@ export type SessionMetadata = {
   tags?: string[]
 }
 
+// ---------------------------------------------------------------------------
+// Structured errors
+// ---------------------------------------------------------------------------
+
+export type PlaygroundError =
+  | { kind: 'glsl-compile'; message: string }
+  | { kind: 'glsl-link'; message: string }
+  | { kind: 'tsl-parse'; message: string }
+  | { kind: 'tsl-runtime'; message: string }
+  | { kind: 'tsl-material-build'; message: string }
+
+// ---------------------------------------------------------------------------
+// Session types
+// ---------------------------------------------------------------------------
+
 export type PlaygroundSession = {
   id: string
+  language: 'glsl' | 'tsl'
   vertexSource: string
   fragmentSource: string
+  tslSource: string | null
   uniforms: UniformDefinition[]
   uniformValues: Record<string, unknown> | null
   pipeline: string
   compilationErrors: string[]
+  structuredErrors: PlaygroundError[]
   screenshotBase64: string | null
   screenshotAt: string | null
   metadata: SessionMetadata | null
@@ -39,8 +57,10 @@ export type PlaygroundSession = {
 
 export type ShaderUpdateEvent = {
   type: 'shader_update'
+  language: 'glsl' | 'tsl'
   vertexSource: string
   fragmentSource: string
+  tslSource: string | null
 }
 
 export type UniformUpdateEvent = {
@@ -55,8 +75,10 @@ export type PlaygroundSSEEvent = ShaderUpdateEvent | UniformUpdateEvent
 // ---------------------------------------------------------------------------
 
 export type CreateSessionRequest = {
+  language?: 'glsl' | 'tsl'
   vertexSource?: string
   fragmentSource?: string
+  tslSource?: string
   uniforms?: UniformDefinition[]
   pipeline?: string
 }
@@ -69,11 +91,13 @@ export type CreateSessionResponse = {
 export type UpdateShaderRequest = {
   vertexSource?: string
   fragmentSource?: string
+  tslSource?: string
 }
 
 export type UpdateShaderResponse = {
   status: 'ok'
   compilationErrors: string[]
+  structuredErrors: PlaygroundError[]
   screenshotBase64: string | null
   browserConnected: boolean
 }
@@ -84,4 +108,5 @@ export type ScreenshotRequest = {
 
 export type ErrorsResponse = {
   errors: string[]
+  structuredErrors: PlaygroundError[]
 }

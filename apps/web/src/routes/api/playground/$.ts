@@ -5,12 +5,14 @@ import {
   updateShader,
   setScreenshot,
   setErrors,
+  setStructuredErrors,
   hasSSEConnections,
   addSSEConnection,
   removeSSEConnection,
   waitForScreenshot,
 } from '../../../lib/server/playground-db'
 import type {
+  PlaygroundError,
   CreateSessionRequest,
   CreateSessionResponse,
   UpdateShaderRequest,
@@ -104,7 +106,10 @@ async function handlePlayground(request: Request): Promise<Response> {
   if (action === 'errors' && request.method === 'GET') {
     const session = getSession(sessionId)
     if (!session) return jsonResponse({ error: 'Session not found' }, 404)
-    const response: ErrorsResponse = { errors: session.compilationErrors }
+    const response: ErrorsResponse = {
+      errors: session.compilationErrors,
+      structuredErrors: session.structuredErrors,
+    }
     return jsonResponse(response)
   }
 
@@ -159,6 +164,7 @@ async function handlePlayground(request: Request): Promise<Response> {
     const response: UpdateShaderResponse = {
       status: 'ok',
       compilationErrors: updated?.compilationErrors ?? [],
+      structuredErrors: updated?.structuredErrors ?? [],
       screenshotBase64,
       browserConnected,
     }
@@ -181,8 +187,14 @@ async function handlePlayground(request: Request): Promise<Response> {
     const session = getSession(sessionId)
     if (!session) return jsonResponse({ error: 'Session not found' }, 404)
 
-    const body = (await request.json().catch(() => ({ errors: [] }))) as { errors: string[] }
+    const body = (await request.json().catch(() => ({ errors: [], structuredErrors: [] }))) as {
+      errors: string[]
+      structuredErrors?: PlaygroundError[]
+    }
     setErrors(sessionId, body.errors ?? [])
+    if (body.structuredErrors) {
+      setStructuredErrors(sessionId, body.structuredErrors)
+    }
     return jsonResponse({ status: 'ok' })
   }
 

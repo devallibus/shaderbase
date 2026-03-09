@@ -185,6 +185,7 @@ const compatibilitySchema = z.object({
     "shader-material",
     "raw-shader-material",
     "post-processing-pass",
+    "node-material",
     "custom",
   ]),
   environments: z.array(z.enum(["three", "react-three-fiber"])).min(1),
@@ -320,66 +321,120 @@ const provenanceSchema = z
     });
   });
 
-export const shaderManifestSchema = z
-  .object({
-    schemaVersion: z.literal("0.1.0"),
-    name: shaderNameSchema,
-    displayName: nonEmptyStringSchema,
-    version: nonEmptyStringSchema,
-    summary: nonEmptyStringSchema,
-    description: nonEmptyStringSchema,
-    author: authorSchema,
-    license: nonEmptyStringSchema,
-    tags: z.array(nonEmptyStringSchema).min(1),
-    category: nonEmptyStringSchema,
-    capabilityProfile: capabilityProfileSchema,
-    compatibility: compatibilitySchema,
-    uniforms: z.array(uniformSchema),
-    inputs: z.array(inputSchema).default([]),
-    outputs: z.array(outputSchema).min(1),
-    files: fileReferencesSchema,
-    recipes: z.array(recipeSchema).min(1),
-    preview: previewSchema,
-    provenance: provenanceSchema,
-  })
-  .superRefine((manifest, ctx) => {
-    const recipeTargets = new Set<string>();
+// ---------------------------------------------------------------------------
+// Recipe cross-validation (shared by both GLSL and TSL variants)
+// ---------------------------------------------------------------------------
 
-    manifest.recipes.forEach((recipe, index) => {
-      if (recipeTargets.has(recipe.target)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `duplicate recipe target "${recipe.target}"`,
-          path: ["recipes", index, "target"],
-        });
-      }
+type ManifestWithRecipesAndCompat = {
+  recipes: Array<{ target: string }>;
+  compatibility: { environments: string[] };
+};
 
-      recipeTargets.add(recipe.target);
+function validateRecipes(manifest: ManifestWithRecipesAndCompat, ctx: z.RefinementCtx) {
+  const recipeTargets = new Set<string>();
 
-      if (recipe.target === "three" && !manifest.compatibility.environments.includes("three")) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "compatibility.environments must include \"three\" when a Three.js recipe exists",
-          path: ["compatibility", "environments"],
-        });
-      }
+  manifest.recipes.forEach((recipe, index) => {
+    if (recipeTargets.has(recipe.target)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `duplicate recipe target "${recipe.target}"`,
+        path: ["recipes", index, "target"],
+      });
+    }
 
-      if (recipe.target === "r3f" && !manifest.compatibility.environments.includes("react-three-fiber")) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "compatibility.environments must include \"react-three-fiber\" when an R3F recipe exists",
-          path: ["compatibility", "environments"],
-        });
-      }
-    });
+    recipeTargets.add(recipe.target);
+
+    if (recipe.target === "three" && !manifest.compatibility.environments.includes("three")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "compatibility.environments must include \"three\" when a Three.js recipe exists",
+        path: ["compatibility", "environments"],
+      });
+    }
+
+    if (recipe.target === "r3f" && !manifest.compatibility.environments.includes("react-three-fiber")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "compatibility.environments must include \"react-three-fiber\" when an R3F recipe exists",
+        path: ["compatibility", "environments"],
+      });
+    }
   });
+}
 
-export type ShaderManifest = z.infer<typeof shaderManifestSchema>;
+// ---------------------------------------------------------------------------
+// Base manifest fields (shared by GLSL and TSL)
+// ---------------------------------------------------------------------------
+
+const baseManifestFields = {
+  schemaVersion: z.literal("0.2.0"),
+  name: shaderNameSchema,
+  displayName: nonEmptyStringSchema,
+  version: nonEmptyStringSchema,
+  summary: nonEmptyStringSchema,
+  description: nonEmptyStringSchema,
+  author: authorSchema,
+  license: nonEmptyStringSchema,
+  tags: z.array(nonEmptyStringSchema).min(1),
+  category: nonEmptyStringSchema,
+  capabilityProfile: capabilityProfileSchema,
+  compatibility: compatibilitySchema,
+  uniforms: z.array(uniformSchema),
+  inputs: z.array(inputSchema).default([]),
+  outputs: z.array(outputSchema).min(1),
+  recipes: z.array(recipeSchema).min(1),
+  preview: previewSchema,
+  provenance: provenanceSchema,
+};
+
+// ---------------------------------------------------------------------------
+// GLSL manifest
+// ---------------------------------------------------------------------------
+
+const glslManifestObjectSchema = z.object({
+  ...baseManifestFields,
+  language: z.literal("glsl"),
+  files: fileReferencesSchema,
+});
+
+const glslManifestSchema = glslManifestObjectSchema.superRefine(validateRecipes);
+
+// ---------------------------------------------------------------------------
+// TSL manifest
+// ---------------------------------------------------------------------------
+
+const tslManifestObjectSchema = z.object({
+  ...baseManifestFields,
+  language: z.literal("tsl"),
+  tslEntry: relativePathSchema,
+});
+
+const tslManifestSchema = tslManifestObjectSchema.superRefine(validateRecipes);
+
+// ---------------------------------------------------------------------------
+// Combined manifest schema with language defaulting to "glsl"
+// ---------------------------------------------------------------------------
+
+export const shaderManifestSchema = z.preprocess(
+  (val) => {
+    if (val && typeof val === "object" && !Array.isArray(val) && !("language" in val)) {
+      return { ...(val as Record<string, unknown>), language: "glsl" };
+    }
+    return val;
+  },
+  z
+    .discriminatedUnion("language", [glslManifestObjectSchema, tslManifestObjectSchema])
+    .superRefine(validateRecipes),
+);
+
+export type GlslManifest = z.infer<typeof glslManifestSchema>;
+export type TslManifest = z.infer<typeof tslManifestSchema>;
+export type ShaderManifest = z.infer<typeof glslManifestSchema> | z.infer<typeof tslManifestSchema>;
 export type Uniform = z.infer<typeof uniformSchema>;
 export type RecipeReference = z.infer<typeof recipeSchema>;
 
 export function parseShaderManifest(input: unknown): ShaderManifest {
-  return shaderManifestSchema.parse(input);
+  return shaderManifestSchema.parse(input) as ShaderManifest;
 }
 
 export function readShaderManifestFile(filePath: string): ShaderManifest {
@@ -398,19 +453,30 @@ function makeMissingFileIssue(path: Array<string | number>, referencedPath: stri
 }
 
 export function collectReferencedFiles(manifest: ShaderManifest) {
-  return [
-    { path: manifest.files.vertex, zodPath: ["files", "vertex"] as Array<string | number> },
-    { path: manifest.files.fragment, zodPath: ["files", "fragment"] as Array<string | number> },
-    ...manifest.files.includes.map((path, index) => ({
-      path,
-      zodPath: ["files", "includes", index] as Array<string | number>,
-    })),
-    { path: manifest.preview.path, zodPath: ["preview", "path"] as Array<string | number> },
+  const files: Array<{ path: string; zodPath: Array<string | number> }> = [];
+
+  if (manifest.language === "glsl") {
+    files.push(
+      { path: manifest.files.vertex, zodPath: ["files", "vertex"] },
+      { path: manifest.files.fragment, zodPath: ["files", "fragment"] },
+      ...manifest.files.includes.map((path, index) => ({
+        path,
+        zodPath: ["files", "includes", index] as Array<string | number>,
+      })),
+    );
+  } else {
+    files.push({ path: manifest.tslEntry, zodPath: ["tslEntry"] });
+  }
+
+  files.push({ path: manifest.preview.path, zodPath: ["preview", "path"] });
+  files.push(
     ...manifest.recipes.map((recipe, index) => ({
       path: recipe.path,
       zodPath: ["recipes", index, "path"] as Array<string | number>,
     })),
-  ];
+  );
+
+  return files;
 }
 
 export function validateShaderManifestFile(filePath: string): ShaderManifest {

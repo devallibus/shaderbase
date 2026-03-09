@@ -1,6 +1,7 @@
 {
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "name": "simplex-displacement",
+  "language": "glsl",
   "displayName": "Simplex Displacement",
   "version": "0.1.0",
   "summary": "A normal-driven displacement shader built around MIT simplex noise code.",

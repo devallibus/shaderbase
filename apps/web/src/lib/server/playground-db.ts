@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type {
   PlaygroundSession,
+  PlaygroundError,
   UniformDefinition,
   SessionMetadata,
   CreateSessionRequest,
@@ -59,6 +60,23 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `)
+
+// Schema migration: add TSL columns
+try {
+  db.exec(`ALTER TABLE playground_sessions ADD COLUMN shader_language TEXT NOT NULL DEFAULT 'glsl'`)
+} catch {
+  // Column already exists
+}
+try {
+  db.exec(`ALTER TABLE playground_sessions ADD COLUMN tsl_source TEXT`)
+} catch {
+  // Column already exists
+}
+try {
+  db.exec(`ALTER TABLE playground_sessions ADD COLUMN structured_errors_json TEXT`)
+} catch {
+  // Column already exists
+}
 
 // ---------------------------------------------------------------------------
 // SSE connection registry (in-memory, ephemeral)
@@ -143,12 +161,15 @@ export function resolveScreenshotWaiters(sessionId: string, base64: string) {
 
 type SessionRow = {
   id: string
+  shader_language: string
   vertex_source: string
   fragment_source: string
+  tsl_source: string | null
   uniforms_json: string
   uniform_values_json: string | null
   pipeline: string
   compilation_errors_json: string | null
+  structured_errors_json: string | null
   screenshot_base64: string | null
   screenshot_at: string | null
   metadata_json: string | null
@@ -159,13 +180,18 @@ type SessionRow = {
 function rowToSession(row: SessionRow): PlaygroundSession {
   return {
     id: row.id,
+    language: row.shader_language as 'glsl' | 'tsl',
     vertexSource: row.vertex_source,
     fragmentSource: row.fragment_source,
+    tslSource: row.tsl_source,
     uniforms: JSON.parse(row.uniforms_json) as UniformDefinition[],
     uniformValues: row.uniform_values_json ? (JSON.parse(row.uniform_values_json) as Record<string, unknown>) : null,
     pipeline: row.pipeline,
     compilationErrors: row.compilation_errors_json
       ? (JSON.parse(row.compilation_errors_json) as string[])
+      : [],
+    structuredErrors: row.structured_errors_json
+      ? (JSON.parse(row.structured_errors_json) as PlaygroundError[])
       : [],
     screenshotBase64: row.screenshot_base64,
     screenshotAt: row.screenshot_at,
@@ -181,15 +207,17 @@ function rowToSession(row: SessionRow): PlaygroundSession {
 
 export function createSession(opts?: CreateSessionRequest): { id: string; session: PlaygroundSession } {
   const id = randomUUID()
+  const language = opts?.language ?? 'glsl'
   const vertexSource = opts?.vertexSource ?? DEFAULT_VERTEX
   const fragmentSource = opts?.fragmentSource ?? DEFAULT_FRAGMENT
+  const tslSource = opts?.tslSource ?? null
   const uniforms = opts?.uniforms ?? DEFAULT_UNIFORMS
   const pipeline = opts?.pipeline ?? 'surface'
 
   db.prepare(
-    `INSERT INTO playground_sessions (id, vertex_source, fragment_source, uniforms_json, pipeline)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run(id, vertexSource, fragmentSource, JSON.stringify(uniforms), pipeline)
+    `INSERT INTO playground_sessions (id, shader_language, vertex_source, fragment_source, tsl_source, uniforms_json, pipeline)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, language, vertexSource, fragmentSource, tslSource, JSON.stringify(uniforms), pipeline)
 
   const session = getSession(id)!
   return { id, session }
@@ -203,7 +231,7 @@ export function getSession(id: string): PlaygroundSession | null {
   return rowToSession(row)
 }
 
-export function updateShader(id: string, update: { vertexSource?: string; fragmentSource?: string }): void {
+export function updateShader(id: string, update: { vertexSource?: string; fragmentSource?: string; tslSource?: string }): void {
   const parts: string[] = []
   const values: unknown[] = []
 
@@ -214,6 +242,10 @@ export function updateShader(id: string, update: { vertexSource?: string; fragme
   if (update.fragmentSource !== undefined) {
     parts.push('fragment_source = ?')
     values.push(update.fragmentSource)
+  }
+  if (update.tslSource !== undefined) {
+    parts.push('tsl_source = ?')
+    values.push(update.tslSource)
   }
 
   if (parts.length === 0) return
@@ -228,8 +260,10 @@ export function updateShader(id: string, update: { vertexSource?: string; fragme
   if (session) {
     pushSSEEvent(id, {
       type: 'shader_update',
+      language: session.language,
       vertexSource: session.vertexSource,
       fragmentSource: session.fragmentSource,
+      tslSource: session.tslSource,
     })
   }
 }
@@ -246,6 +280,12 @@ export function setScreenshot(id: string, base64: string): void {
 export function setErrors(id: string, errors: string[]): void {
   db.prepare(
     `UPDATE playground_sessions SET compilation_errors_json = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(JSON.stringify(errors), id)
+}
+
+export function setStructuredErrors(id: string, errors: PlaygroundError[]): void {
+  db.prepare(
+    `UPDATE playground_sessions SET structured_errors_json = ?, updated_at = datetime('now') WHERE id = ?`,
   ).run(JSON.stringify(errors), id)
 }
 

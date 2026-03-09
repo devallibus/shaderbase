@@ -79,6 +79,10 @@ const TOOLS = [
           items: { type: "string" },
           description: "Filter by tags — all specified tags must be present.",
         },
+        language: {
+          type: "string",
+          description: "Filter by shader language ('glsl' or 'tsl').",
+        },
       },
       additionalProperties: false,
     },
@@ -130,6 +134,14 @@ const TOOLS = [
       properties: {
         vertexSource: { type: "string", description: "Initial vertex shader GLSL source." },
         fragmentSource: { type: "string", description: "Initial fragment shader GLSL source." },
+        language: {
+          type: "string",
+          description: "Shader language: 'glsl' (default) or 'tsl'.",
+        },
+        tslSource: {
+          type: "string",
+          description: "TSL source code (when language is 'tsl').",
+        },
         uniforms: {
           type: "array",
           items: {
@@ -161,6 +173,10 @@ const TOOLS = [
         sessionId: { type: "string", description: "The playground session ID." },
         vertexSource: { type: "string", description: "New vertex shader GLSL source." },
         fragmentSource: { type: "string", description: "New fragment shader GLSL source." },
+        tslSource: {
+          type: "string",
+          description: "New TSL source code (for TSL sessions).",
+        },
       },
       required: ["sessionId"],
       additionalProperties: false,
@@ -227,6 +243,10 @@ const TOOLS_MCP_FORMAT = [
           items: { type: "string" },
           description: "Filter by tags (all must match)",
         },
+        language: {
+          type: "string",
+          description: "Filter by shader language ('glsl' or 'tsl').",
+        },
       },
     },
   },
@@ -279,6 +299,14 @@ const TOOLS_MCP_FORMAT = [
           type: "string",
           description: "Initial fragment shader GLSL source (defaults to an animated color gradient)",
         },
+        language: {
+          type: "string",
+          description: "Shader language: 'glsl' (default) or 'tsl'.",
+        },
+        tslSource: {
+          type: "string",
+          description: "TSL source code (when language is 'tsl').",
+        },
         uniforms: {
           type: "array",
           items: {
@@ -320,6 +348,10 @@ const TOOLS_MCP_FORMAT = [
         fragmentSource: {
           type: "string",
           description: "New fragment shader GLSL source",
+        },
+        tslSource: {
+          type: "string",
+          description: "New TSL source code (for TSL sessions).",
         },
       },
       required: ["sessionId"] as const,
@@ -412,6 +444,7 @@ async function handleMcpToolCall(
         pipeline?: string;
         environment?: string;
         tags?: string[];
+        language?: string;
       },
       registryUrl,
     );
@@ -466,6 +499,8 @@ async function handleMcpToolCall(
       toolArgs as {
         vertexSource?: string;
         fragmentSource?: string;
+        tslSource?: string;
+        language?: string;
         pipeline?: string;
       },
       playgroundEnv,
@@ -480,7 +515,7 @@ async function handleMcpToolCall(
       throw new Error("Missing required parameter: sessionId");
     }
     const result = await handleUpdateShader(
-      toolArgs as { sessionId: string; vertexSource?: string; fragmentSource?: string },
+      toolArgs as { sessionId: string; vertexSource?: string; fragmentSource?: string; tslSource?: string },
       playgroundEnv,
     );
 

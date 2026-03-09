@@ -20,6 +20,7 @@ export async function handleSearchShaders(
     pipeline?: string;
     environment?: string;
     tags?: string[];
+    language?: string;
   },
   registryUrl: string,
   fetchFn: (input: string | URL | Request) => Promise<Response> = fetch,

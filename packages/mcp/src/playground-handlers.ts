@@ -22,6 +22,8 @@ export async function handleCreatePlayground(
   args: {
     vertexSource?: string;
     fragmentSource?: string;
+    tslSource?: string;
+    language?: string;
     uniforms?: Array<{ name: string; type: string; defaultValue: unknown }>;
     pipeline?: string;
   },
@@ -51,6 +53,7 @@ export async function handleUpdateShader(
     sessionId: string;
     vertexSource?: string;
     fragmentSource?: string;
+    tslSource?: string;
   },
   env: PlaygroundEnv,
   fetchFn: (input: string | URL | Request, init?: RequestInit) => Promise<Response> = fetch,

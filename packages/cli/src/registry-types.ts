@@ -28,6 +28,7 @@ export const registryIndexEntrySchema = z.object({
   renderers: z.array(z.string().min(1)).min(1),
   sourceKind: z.string().min(1),
   uniforms: z.array(registryUniformSummarySchema),
+  language: z.string().min(1),
 });
 
 export type RegistryIndexEntry = z.infer<typeof registryIndexEntrySchema>;
@@ -37,7 +38,7 @@ export type RegistryIndexEntry = z.infer<typeof registryIndexEntrySchema>;
 // ---------------------------------------------------------------------------
 
 export const registryIndexSchema = z.object({
-  version: z.literal("0.1.0"),
+  version: z.literal("0.2.0"),
   generatedAt: z.string().min(1),
   shaders: z.array(registryIndexEntrySchema),
 });
@@ -165,8 +166,8 @@ export type RegistryCompatibility = z.infer<typeof registryCompatibilitySchema>;
 // Shader bundle — full detail for a single shader (served by MCP / CLI add)
 // ---------------------------------------------------------------------------
 
-export const registryShaderBundleSchema = z.object({
-  // Fields from the index entry
+// Base fields shared by all bundles
+const registryShaderBundleBaseFields = {
   name: z.string().min(1),
   displayName: z.string().min(1),
   version: z.string().min(1),
@@ -179,6 +180,7 @@ export const registryShaderBundleSchema = z.object({
   renderers: z.array(z.string().min(1)).min(1),
   sourceKind: z.string().min(1),
   uniforms: z.array(registryUniformSummarySchema),
+  language: z.string().min(1),
 
   // Extended fields
   description: z.string().min(1),
@@ -193,10 +195,28 @@ export const registryShaderBundleSchema = z.object({
   uniformsFull: z.array(registryUniformFullSchema),
   inputs: z.array(registryInputSchema),
   outputs: z.array(registryOutputSchema),
-  vertexSource: z.string().min(1),
-  fragmentSource: z.string().min(1),
   recipes: z.record(z.string(), registryRecipeBundleSchema),
   provenance: registryProvenanceSchema,
+};
+
+const registryGlslBundleSchema = z.object({
+  ...registryShaderBundleBaseFields,
+  language: z.literal("glsl"),
+  vertexSource: z.string().min(1),
+  fragmentSource: z.string().min(1),
 });
 
+const registryTslBundleSchema = z.object({
+  ...registryShaderBundleBaseFields,
+  language: z.literal("tsl"),
+  tslSource: z.string().min(1),
+});
+
+export const registryShaderBundleSchema = z.discriminatedUnion("language", [
+  registryGlslBundleSchema,
+  registryTslBundleSchema,
+]);
+
+export type RegistryGlslBundle = z.infer<typeof registryGlslBundleSchema>;
+export type RegistryTslBundle = z.infer<typeof registryTslBundleSchema>;
 export type RegistryShaderBundle = z.infer<typeof registryShaderBundleSchema>;

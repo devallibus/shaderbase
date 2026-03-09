@@ -38,14 +38,20 @@ export function writeShaderFiles(
 
   const writtenPaths: string[] = [];
 
-  // Write GLSL sources
-  const vertexPath = join(shaderDir, "vertex.glsl");
-  writeFileSync(vertexPath, bundle.vertexSource, "utf-8");
-  writtenPaths.push(vertexPath);
+  // Write source files based on language
+  if (bundle.language === "tsl") {
+    const tslPath = join(shaderDir, "source.ts");
+    writeFileSync(tslPath, bundle.tslSource, "utf-8");
+    writtenPaths.push(tslPath);
+  } else {
+    const vertexPath = join(shaderDir, "vertex.glsl");
+    writeFileSync(vertexPath, bundle.vertexSource, "utf-8");
+    writtenPaths.push(vertexPath);
 
-  const fragmentPath = join(shaderDir, "fragment.glsl");
-  writeFileSync(fragmentPath, bundle.fragmentSource, "utf-8");
-  writtenPaths.push(fragmentPath);
+    const fragmentPath = join(shaderDir, "fragment.glsl");
+    writeFileSync(fragmentPath, bundle.fragmentSource, "utf-8");
+    writtenPaths.push(fragmentPath);
+  }
 
   // Determine which recipes to write
   const recipeKeys = options.environment
