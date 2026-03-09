@@ -31,6 +31,19 @@ type JsonRpcRequest = {
   params?: Record<string, unknown>;
 };
 
+type McpTextContent = {
+  type: "text";
+  text: string;
+};
+
+type McpImageContent = {
+  type: "image";
+  data: string;
+  mimeType: string;
+};
+
+type McpContentItem = McpTextContent | McpImageContent;
+
 // ---------------------------------------------------------------------------
 // Tool definitions — HTTP format (used by /tools endpoint)
 // ---------------------------------------------------------------------------
@@ -390,7 +403,7 @@ async function handleMcpToolCall(
   toolArgs: Record<string, unknown>,
   registryUrl: string,
   env: Env,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<{ content: McpContentItem[] }> {
   if (toolName === "search_shaders") {
     const results = await handleSearchShaders(
       toolArgs as {
@@ -471,7 +484,7 @@ async function handleMcpToolCall(
       playgroundEnv,
     );
 
-    const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [];
+    const content: McpContentItem[] = [];
 
     // Always include text status
     content.push({
