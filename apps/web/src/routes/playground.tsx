@@ -45,7 +45,7 @@ function PlaygroundPage() {
       () => session(),
       (s) => {
         if (isServer || !s) return
-        if (!search.session) {
+        if (search.session !== s.id) {
           navigate({ search: { session: s.id }, replace: true })
         }
       },
