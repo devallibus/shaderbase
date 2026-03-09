@@ -138,8 +138,9 @@ async function handlePlayground(request: Request): Promise<Response> {
   }
 
   // POST /api/playground/:sessionId/update
+  // No auth required — the session UUID is the capability token.
+  // Both the browser editor and the MCP worker can update.
   if (action === 'update' && request.method === 'POST') {
-    if (!isAuthorized(request)) return unauthorizedResponse()
     const session = getSession(sessionId)
     if (!session) return jsonResponse({ error: 'Session not found' }, 404)
 

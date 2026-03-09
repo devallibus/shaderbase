@@ -1,6 +1,7 @@
-import { createFileRoute, useSearch } from '@tanstack/solid-router'
+import { createFileRoute, useNavigate, useSearch } from '@tanstack/solid-router'
 import { createServerFn } from '@tanstack/solid-start'
-import { createResource, Show, Suspense } from 'solid-js'
+import { createEffect, createResource, on, Show, Suspense } from 'solid-js'
+import { isServer } from 'solid-js/web'
 import PlaygroundLayout from '../components/playground/PlaygroundLayout'
 import type { PlaygroundSession } from '../lib/playground-types'
 
@@ -28,19 +29,28 @@ export const Route = createFileRoute('/playground')({
 
 function PlaygroundPage() {
   const search = useSearch({ from: '/playground' })
+  const navigate = useNavigate()
 
   const [session] = createResource(
     () => search.session,
     async (sessionId) => {
       const result = await getOrCreateSession({ data: { sessionId } })
-      // Update URL with session ID if we created a new one
-      if (!sessionId && result?.id) {
-        const url = new URL(window.location.href)
-        url.searchParams.set('session', result.id)
-        window.history.replaceState({}, '', url.toString())
-      }
       return result as PlaygroundSession
     },
+  )
+
+  // Update URL with session ID after hydration (client-only)
+  createEffect(
+    on(
+      () => session(),
+      (s) => {
+        if (isServer || !s) return
+        if (!search.session) {
+          navigate({ search: { session: s.id }, replace: true })
+        }
+      },
+      { defer: true },
+    ),
   )
 
   return (
