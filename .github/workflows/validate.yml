@@ -113,12 +113,21 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
-      - name: Deploy MCP Worker
+      - name: Deploy MCP Worker (production)
+        if: github.ref == 'refs/heads/master'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: packages/mcp
-          command: deploy ${{ github.ref == 'refs/heads/development' && '--env development' || '--env=""' }}
+          command: deploy
+
+      - name: Deploy MCP Worker (development)
+        if: github.ref == 'refs/heads/development'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: packages/mcp
+          command: deploy --env development
 
   publish-cli:
     needs: check
