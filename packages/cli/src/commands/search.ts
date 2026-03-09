@@ -10,6 +10,7 @@ export type SearchFilters = {
   pipeline?: string;
   environment?: string;
   tags?: string[];
+  language?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -33,7 +34,7 @@ export function searchShaders(
   index: RegistryIndex,
   filters: SearchFilters,
 ): RegistryIndexEntry[] {
-  const { query, category, pipeline, environment, tags } = filters;
+  const { query, category, pipeline, environment, tags, language } = filters;
 
   return index.shaders.filter((shader) => {
     // query — case-insensitive match against name, displayName, summary, or any tag
@@ -45,6 +46,11 @@ export function searchShaders(
         shader.summary.toLowerCase().includes(q) ||
         shader.tags.some((t) => t.toLowerCase().includes(q));
       if (!matchesQuery) return false;
+    }
+
+    // language — exact case-insensitive match
+    if (language) {
+      if ((shader.language ?? "glsl").toLowerCase() !== language.toLowerCase()) return false;
     }
 
     // category — exact case-insensitive match

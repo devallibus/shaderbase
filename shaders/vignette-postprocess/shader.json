@@ -1,6 +1,7 @@
 {
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "name": "vignette-postprocess",
+  "language": "glsl",
   "displayName": "Vignette Postprocess",
   "version": "0.1.0",
   "summary": "A screen-space vignette pass adapted from the official Three.js example shader.",

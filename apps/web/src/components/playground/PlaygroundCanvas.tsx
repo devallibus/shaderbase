@@ -6,6 +6,7 @@ type PlaygroundCanvasProps = {
   vertexSource: string
   fragmentSource: string
   pipeline: string
+  language: 'glsl' | 'tsl'
   onError: (errors: string[]) => void
   onScreenshotReady: (base64: string) => void
 }
@@ -32,6 +33,12 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
   const [initError, setInitError] = createSignal('')
 
   onMount(async () => {
+    // TSL preview not yet implemented — show placeholder
+    if (props.language === 'tsl') {
+      setLoading(false)
+      return
+    }
+
     let THREE: THREE
     try {
       THREE = await import('three')
@@ -247,7 +254,7 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
     on(
       () => [props.vertexSource, props.fragmentSource] as const,
       ([vertex, fragment]) => {
-        if (!threeModule || !renderer) return
+        if (!threeModule || !renderer || props.language === 'tsl') return
         compileShader(threeModule, vertex, fragment)
       },
       { defer: true },
@@ -267,6 +274,16 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
       {initError() && (
         <div class="absolute inset-0 flex items-center justify-center p-4">
           <p class="text-sm text-danger">{initError()}</p>
+        </div>
+      )}
+      {!loading() && props.language === 'tsl' && (
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+          <div class="text-center">
+            <p class="text-sm font-medium text-text-secondary">TSL Preview</p>
+            <p class="mt-1 text-xs text-text-muted">
+              WebGPU-based TSL preview coming soon.
+            </p>
+          </div>
         </div>
       )}
     </div>

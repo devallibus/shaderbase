@@ -1,6 +1,7 @@
 {
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "name": "gradient-radial",
+  "language": "glsl",
   "displayName": "Radial Gradient",
   "version": "0.1.0",
   "summary": "A small surface shader that blends two colors from the UV center outward.",

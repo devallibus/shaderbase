@@ -5,12 +5,14 @@ import {
   updateShader,
   setScreenshot,
   setErrors,
+  setStructuredErrors,
   hasSSEConnections,
   addSSEConnection,
   removeSSEConnection,
   waitForScreenshot,
 } from '../../../lib/server/playground-db'
 import type {
+  PlaygroundError,
   CreateSessionRequest,
   CreateSessionResponse,
   UpdateShaderRequest,
@@ -34,6 +36,13 @@ function isAuthorized(request: Request): boolean {
 function unauthorizedResponse(): Response {
   return new Response(JSON.stringify({ error: 'Unauthorized' }), {
     status: 401,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function badRequestResponse(message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 400,
     headers: { 'Content-Type': 'application/json' },
   })
 }
@@ -78,12 +87,17 @@ async function handlePlayground(request: Request): Promise<Response> {
   if (segments[0] === 'create' && request.method === 'POST') {
     if (!isAuthorized(request)) return unauthorizedResponse()
     const body = (await request.json().catch(() => ({}))) as CreateSessionRequest
-    const { id } = createSession(body)
-    const response: CreateSessionResponse = {
-      sessionId: id,
-      url: `${WEB_URL}/playground?session=${id}`,
+    try {
+      const created = createSession(body)
+      const response: CreateSessionResponse = {
+        sessionId: created.id,
+        url: `${WEB_URL}/playground?session=${created.id}`,
+        previewAvailable: created.session.language === 'glsl',
+      }
+      return jsonResponse(response, 201)
+    } catch (error) {
+      return badRequestResponse(error instanceof Error ? error.message : 'Invalid session request')
     }
-    return jsonResponse(response, 201)
   }
 
   // Routes that require a sessionId: /api/playground/:sessionId/:action
@@ -104,7 +118,10 @@ async function handlePlayground(request: Request): Promise<Response> {
   if (action === 'errors' && request.method === 'GET') {
     const session = getSession(sessionId)
     if (!session) return jsonResponse({ error: 'Session not found' }, 404)
-    const response: ErrorsResponse = { errors: session.compilationErrors }
+    const response: ErrorsResponse = {
+      errors: session.compilationErrors,
+      structuredErrors: session.structuredErrors,
+    }
     return jsonResponse(response)
   }
 
@@ -145,12 +162,18 @@ async function handlePlayground(request: Request): Promise<Response> {
     if (!session) return jsonResponse({ error: 'Session not found' }, 404)
 
     const body = (await request.json().catch(() => ({}))) as UpdateShaderRequest
-    updateShader(sessionId, body)
+    try {
+      updateShader(sessionId, body, session.language)
+    } catch (error) {
+      return badRequestResponse(error instanceof Error ? error.message : 'Invalid shader update request')
+    }
 
-    // Wait for screenshot from browser (with timeout)
+    const previewAvailable = session.language === 'glsl'
+
+    // Wait for screenshot from browser — only for GLSL (TSL preview not yet implemented)
     const browserConnected = hasSSEConnections(sessionId)
     let screenshotBase64: string | null = null
-    if (browserConnected) {
+    if (browserConnected && previewAvailable) {
       screenshotBase64 = await waitForScreenshot(sessionId, SCREENSHOT_WAIT_MS)
     }
 
@@ -159,8 +182,10 @@ async function handlePlayground(request: Request): Promise<Response> {
     const response: UpdateShaderResponse = {
       status: 'ok',
       compilationErrors: updated?.compilationErrors ?? [],
+      structuredErrors: updated?.structuredErrors ?? [],
       screenshotBase64,
       browserConnected,
+      previewAvailable,
     }
     return jsonResponse(response)
   }
@@ -181,8 +206,12 @@ async function handlePlayground(request: Request): Promise<Response> {
     const session = getSession(sessionId)
     if (!session) return jsonResponse({ error: 'Session not found' }, 404)
 
-    const body = (await request.json().catch(() => ({ errors: [] }))) as { errors: string[] }
+    const body = (await request.json().catch(() => ({ errors: [], structuredErrors: [] }))) as {
+      errors: string[]
+      structuredErrors?: PlaygroundError[]
+    }
     setErrors(sessionId, body.errors ?? [])
+    setStructuredErrors(sessionId, body.structuredErrors ?? [])
     return jsonResponse({ status: 'ok' })
   }
 

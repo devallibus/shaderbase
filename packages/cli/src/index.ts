@@ -5,7 +5,7 @@ export type { WriteOptions } from "./commands/add.ts";
 export { runSubmit } from "./commands/submit.ts";
 export type { SubmitInput, SubmitResult } from "./commands/submit.ts";
 export { fetchIndex, fetchShaderBundle, getRegistryUrl } from "./lib/registry-client.ts";
-export type { RegistryIndex, RegistryIndexEntry, RegistryShaderBundle } from "./registry-types.ts";
+export type { RegistryIndex, RegistryIndexEntry, RegistryShaderBundle, RegistryGlslBundle, RegistryTslBundle } from "./registry-types.ts";
 export { resolveSource } from "./lib/resolve-source.ts";
 export type { ResolvedSource } from "./lib/resolve-source.ts";
 export { aiParseShader } from "./lib/ai-parse.ts";

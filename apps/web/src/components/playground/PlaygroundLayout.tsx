@@ -10,8 +10,15 @@ type PlaygroundLayoutProps = {
 
 export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
   const [activeTab, setActiveTab] = createSignal<'fragment' | 'vertex'>('fragment')
-  const [vertexSource, setVertexSource] = createSignal(props.session.vertexSource)
-  const [fragmentSource, setFragmentSource] = createSignal(props.session.fragmentSource)
+  const [vertexSource, setVertexSource] = createSignal(
+    props.session.language === 'glsl' ? props.session.vertexSource : '',
+  )
+  const [fragmentSource, setFragmentSource] = createSignal(
+    props.session.language === 'glsl' ? props.session.fragmentSource : '',
+  )
+  const [tslSource, setTslSource] = createSignal(
+    props.session.language === 'tsl' ? props.session.tslSource : '',
+  )
   const [errors, setErrors] = createSignal<string[]>(props.session.compilationErrors)
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -24,9 +31,18 @@ export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
 
     eventSource.addEventListener('shader_update', (e) => {
       try {
-        const data = JSON.parse(e.data) as { vertexSource: string; fragmentSource: string }
-        setVertexSource(data.vertexSource)
-        setFragmentSource(data.fragmentSource)
+        const data = JSON.parse(e.data) as {
+          language: string
+          vertexSource?: string
+          fragmentSource?: string
+          tslSource?: string
+        }
+        if (data.language === 'glsl') {
+          if (data.vertexSource !== undefined) setVertexSource(data.vertexSource)
+          if (data.fragmentSource !== undefined) setFragmentSource(data.fragmentSource)
+        } else if (data.language === 'tsl') {
+          if (data.tslSource !== undefined) setTslSource(data.tslSource)
+        }
       } catch {
         // Ignore malformed events
       }
@@ -47,13 +63,14 @@ export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
   })
 
   function handleEditorChange(value: string) {
-    if (activeTab() === 'fragment') {
+    if (props.session.language === 'tsl') {
+      setTslSource(value)
+    } else if (activeTab() === 'fragment') {
       setFragmentSource(value)
     } else {
       setVertexSource(value)
     }
 
-    // Debounce manual edits before syncing to server
     if (debounceTimer) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(() => {
       syncToServer()
@@ -62,13 +79,14 @@ export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
 
   async function syncToServer() {
     try {
+      const body = props.session.language === 'tsl'
+        ? { tslSource: tslSource() }
+        : { vertexSource: vertexSource(), fragmentSource: fragmentSource() }
+
       await fetch(`/api/playground/${props.session.id}/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vertexSource: vertexSource(),
-          fragmentSource: fragmentSource(),
-        }),
+        body: JSON.stringify(body),
       })
     } catch {
       // Network error — will retry on next edit
@@ -93,7 +111,10 @@ export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
     }).catch(() => {})
   }
 
-  const currentEditorValue = () => (activeTab() === 'fragment' ? fragmentSource() : vertexSource())
+  const currentEditorValue = () => {
+    if (props.session.language === 'tsl') return tslSource()
+    return activeTab() === 'fragment' ? fragmentSource() : vertexSource()
+  }
 
   return (
     <div class="flex h-[calc(100vh-56px)] flex-col lg:flex-row">
@@ -101,26 +122,41 @@ export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
       <div class="flex min-h-0 flex-1 flex-col border-r border-surface-card-border">
         {/* Tab bar */}
         <div class="flex border-b border-surface-card-border bg-surface-primary">
-          <button
-            class={`px-4 py-2 text-xs font-medium transition ${
-              activeTab() === 'fragment'
-                ? 'border-b-2 border-accent text-text-primary'
-                : 'text-text-muted hover:text-text-secondary'
-            }`}
-            onClick={() => setActiveTab('fragment')}
-          >
-            fragment.glsl
-          </button>
-          <button
-            class={`px-4 py-2 text-xs font-medium transition ${
-              activeTab() === 'vertex'
-                ? 'border-b-2 border-accent text-text-primary'
-                : 'text-text-muted hover:text-text-secondary'
-            }`}
-            onClick={() => setActiveTab('vertex')}
-          >
-            vertex.glsl
-          </button>
+          {props.session.language === 'tsl' ? (
+            <button
+              class="border-b-2 border-accent px-4 py-2 text-xs font-medium text-text-primary"
+            >
+              source.ts
+            </button>
+          ) : (
+            <>
+              <button
+                class={`px-4 py-2 text-xs font-medium transition ${
+                  activeTab() === 'fragment'
+                    ? 'border-b-2 border-accent text-text-primary'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+                onClick={() => setActiveTab('fragment')}
+              >
+                fragment.glsl
+              </button>
+              <button
+                class={`px-4 py-2 text-xs font-medium transition ${
+                  activeTab() === 'vertex'
+                    ? 'border-b-2 border-accent text-text-primary'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+                onClick={() => setActiveTab('vertex')}
+              >
+                vertex.glsl
+              </button>
+            </>
+          )}
+          <div class="ml-auto flex items-center px-3">
+            <span class="rounded bg-surface-card px-1.5 py-0.5 text-[10px] font-medium uppercase text-text-muted">
+              {props.session.language === 'tsl' ? 'TSL' : 'GLSL'}
+            </span>
+          </div>
         </div>
 
         {/* Editor */}
@@ -147,6 +183,7 @@ export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
               vertexSource={vertexSource()}
               fragmentSource={fragmentSource()}
               pipeline={props.session.pipeline}
+              language={props.session.language}
               onError={handleErrors}
               onScreenshotReady={handleScreenshotReady}
             />

@@ -18,7 +18,7 @@ function runTest(name: string, callback: () => void) {
 
 function makeMockIndex(): RegistryIndex {
   return {
-    version: "0.1.0",
+    version: "0.2.0",
     generatedAt: "2026-03-07T00:00:00Z",
     shaders: [
       {
@@ -34,6 +34,7 @@ function makeMockIndex(): RegistryIndex {
         renderers: ["webgl2"],
         sourceKind: "original",
         uniforms: [{ name: "uColor", type: "vec3" }],
+        language: "glsl",
       },
       {
         name: "vignette-postprocess",
@@ -48,6 +49,7 @@ function makeMockIndex(): RegistryIndex {
         renderers: ["webgl2"],
         sourceKind: "original",
         uniforms: [{ name: "uIntensity", type: "float" }],
+        language: "glsl",
       },
       {
         name: "simplex-displacement",
@@ -62,6 +64,7 @@ function makeMockIndex(): RegistryIndex {
         renderers: ["webgl2"],
         sourceKind: "adapted",
         uniforms: [{ name: "uAmplitude", type: "float" }],
+        language: "glsl",
       },
     ],
   };

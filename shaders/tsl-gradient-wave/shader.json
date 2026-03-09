@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "0.2.0",
+  "name": "tsl-gradient-wave",
+  "language": "tsl",
+  "displayName": "TSL Gradient Wave",
+  "version": "0.1.0",
+  "summary": "An animated gradient wave surface shader written in Three Shading Language.",
+  "description": "A reference TSL shader for ShaderBase. It renders an animated two-color gradient that waves using sine functions, demonstrating the TSL node-based material system with the createMaterial contract.",
+  "author": {
+    "name": "ShaderBase"
+  },
+  "license": "MIT",
+  "tags": ["tsl", "gradient", "wave", "animated", "surface"],
+  "category": "color",
+  "capabilityProfile": {
+    "pipeline": "surface",
+    "stage": "vertex-and-fragment",
+    "requires": ["uv", "time"],
+    "outputs": ["color"]
+  },
+  "compatibility": {
+    "three": ">=0.170.0",
+    "renderers": ["webgpu"],
+    "material": "node-material",
+    "environments": ["three"]
+  },
+  "uniforms": [],
+  "inputs": [
+    {
+      "name": "uv",
+      "kind": "uv",
+      "description": "Mesh UV coordinates.",
+      "required": true
+    },
+    {
+      "name": "time",
+      "kind": "time",
+      "description": "Elapsed time for animation.",
+      "required": true
+    }
+  ],
+  "outputs": [
+    {
+      "name": "surfaceColor",
+      "kind": "color",
+      "description": "Animated gradient color blended with a sine wave."
+    }
+  ],
+  "tslEntry": "source.ts",
+  "recipes": [
+    {
+      "target": "three",
+      "path": "recipes/three.ts",
+      "exportName": "createTslGradientWaveMaterial",
+      "summary": "Create a NodeMaterial with an animated gradient wave for use with WebGPURenderer.",
+      "placeholders": [],
+      "requirements": ["three-scene", "mesh"]
+    }
+  ],
+  "preview": {
+    "path": "preview.svg",
+    "format": "svg",
+    "width": 512,
+    "height": 512,
+    "deterministic": true
+  },
+  "provenance": {
+    "sourceKind": "original",
+    "sources": [],
+    "attribution": {
+      "summary": "Authored directly in the ShaderBase repository as the reference TSL shader."
+    },
+    "notes": "Seed TSL shader authored inside the repository to establish the TSL manifest contract."
+  }
+}

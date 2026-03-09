@@ -18,14 +18,28 @@ export type SessionMetadata = {
   tags?: string[]
 }
 
-export type PlaygroundSession = {
+// ---------------------------------------------------------------------------
+// Structured errors
+// ---------------------------------------------------------------------------
+
+export type PlaygroundError =
+  | { kind: 'glsl-compile'; message: string }
+  | { kind: 'glsl-link'; message: string }
+  | { kind: 'tsl-parse'; message: string }
+  | { kind: 'tsl-runtime'; message: string }
+  | { kind: 'tsl-material-build'; message: string }
+
+// ---------------------------------------------------------------------------
+// Session types — discriminated union on language
+// ---------------------------------------------------------------------------
+
+type PlaygroundSessionBase = {
   id: string
-  vertexSource: string
-  fragmentSource: string
   uniforms: UniformDefinition[]
   uniformValues: Record<string, unknown> | null
   pipeline: string
   compilationErrors: string[]
+  structuredErrors: PlaygroundError[]
   screenshotBase64: string | null
   screenshotAt: string | null
   metadata: SessionMetadata | null
@@ -33,15 +47,26 @@ export type PlaygroundSession = {
   updatedAt: string
 }
 
+export type GlslPlaygroundSession = PlaygroundSessionBase & {
+  language: 'glsl'
+  vertexSource: string
+  fragmentSource: string
+}
+
+export type TslPlaygroundSession = PlaygroundSessionBase & {
+  language: 'tsl'
+  tslSource: string
+}
+
+export type PlaygroundSession = GlslPlaygroundSession | TslPlaygroundSession
+
 // ---------------------------------------------------------------------------
 // SSE event types
 // ---------------------------------------------------------------------------
 
-export type ShaderUpdateEvent = {
-  type: 'shader_update'
-  vertexSource: string
-  fragmentSource: string
-}
+export type ShaderUpdateEvent =
+  | { type: 'shader_update'; language: 'glsl'; vertexSource: string; fragmentSource: string }
+  | { type: 'shader_update'; language: 'tsl'; tslSource: string }
 
 export type UniformUpdateEvent = {
   type: 'uniform_update'
@@ -54,28 +79,42 @@ export type PlaygroundSSEEvent = ShaderUpdateEvent | UniformUpdateEvent
 // API request / response types
 // ---------------------------------------------------------------------------
 
-export type CreateSessionRequest = {
+export type CreateGlslSessionRequest = {
+  language?: 'glsl'
   vertexSource?: string
   fragmentSource?: string
   uniforms?: UniformDefinition[]
   pipeline?: string
 }
 
+export type CreateTslSessionRequest = {
+  language: 'tsl'
+  tslSource?: string
+  uniforms?: UniformDefinition[]
+  pipeline?: string
+}
+
+export type CreateSessionRequest = CreateGlslSessionRequest | CreateTslSessionRequest
+
 export type CreateSessionResponse = {
   sessionId: string
   url: string
+  previewAvailable: boolean
 }
 
 export type UpdateShaderRequest = {
   vertexSource?: string
   fragmentSource?: string
+  tslSource?: string
 }
 
 export type UpdateShaderResponse = {
   status: 'ok'
   compilationErrors: string[]
+  structuredErrors: PlaygroundError[]
   screenshotBase64: string | null
   browserConnected: boolean
+  previewAvailable: boolean
 }
 
 export type ScreenshotRequest = {
@@ -84,4 +123,5 @@ export type ScreenshotRequest = {
 
 export type ErrorsResponse = {
   errors: string[]
+  structuredErrors: PlaygroundError[]
 }

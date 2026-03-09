@@ -79,6 +79,10 @@ const TOOLS = [
           items: { type: "string" },
           description: "Filter by tags — all specified tags must be present.",
         },
+        language: {
+          type: "string",
+          description: "Filter by shader language ('glsl' or 'tsl').",
+        },
       },
       additionalProperties: false,
     },
@@ -124,12 +128,20 @@ const TOOLS = [
   {
     name: "create_playground",
     description:
-      "Create a new shader playground session for live GLSL editing with visual preview.",
+      "Create a new shader playground session. GLSL sessions have visual preview; TSL sessions support editing only (previewAvailable flag indicates status).",
     inputSchema: {
       type: "object" as const,
       properties: {
         vertexSource: { type: "string", description: "Initial vertex shader GLSL source." },
         fragmentSource: { type: "string", description: "Initial fragment shader GLSL source." },
+        language: {
+          type: "string",
+          description: "Shader language: 'glsl' (default) or 'tsl'.",
+        },
+        tslSource: {
+          type: "string",
+          description: "TSL source code (when language is 'tsl').",
+        },
         uniforms: {
           type: "array",
           items: {
@@ -154,13 +166,17 @@ const TOOLS = [
   {
     name: "update_shader",
     description:
-      "Update GLSL source in a playground session. Returns compilation errors and a screenshot.",
+      "Update shader source in a playground session. Returns compilation errors, structured errors, and a screenshot (GLSL only).",
     inputSchema: {
       type: "object" as const,
       properties: {
         sessionId: { type: "string", description: "The playground session ID." },
         vertexSource: { type: "string", description: "New vertex shader GLSL source." },
         fragmentSource: { type: "string", description: "New fragment shader GLSL source." },
+        tslSource: {
+          type: "string",
+          description: "New TSL source code (for TSL sessions).",
+        },
       },
       required: ["sessionId"],
       additionalProperties: false,
@@ -182,7 +198,7 @@ const TOOLS = [
   {
     name: "get_errors",
     description:
-      "Get compilation errors from a playground session.",
+      "Get compilation errors and structured errors from a playground session.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -227,6 +243,10 @@ const TOOLS_MCP_FORMAT = [
           items: { type: "string" },
           description: "Filter by tags (all must match)",
         },
+        language: {
+          type: "string",
+          description: "Filter by shader language ('glsl' or 'tsl').",
+        },
       },
     },
   },
@@ -267,7 +287,7 @@ const TOOLS_MCP_FORMAT = [
   {
     name: "create_playground",
     description:
-      "Create a new shader playground session for live GLSL editing with visual preview. Returns a session ID and URL to open in a browser. An AI agent can then use update_shader to change the GLSL and get_preview to see screenshots of the result.",
+      "Create a new shader playground session for live editing. Supports both GLSL and TSL languages. GLSL sessions have full visual preview with screenshots. TSL sessions support source editing but preview is not yet available (previewAvailable will be false). Returns a session ID, URL, and previewAvailable flag.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -278,6 +298,14 @@ const TOOLS_MCP_FORMAT = [
         fragmentSource: {
           type: "string",
           description: "Initial fragment shader GLSL source (defaults to an animated color gradient)",
+        },
+        language: {
+          type: "string",
+          description: "Shader language: 'glsl' (default) or 'tsl'.",
+        },
+        tslSource: {
+          type: "string",
+          description: "TSL source code (when language is 'tsl').",
         },
         uniforms: {
           type: "array",
@@ -305,7 +333,7 @@ const TOOLS_MCP_FORMAT = [
   {
     name: "update_shader",
     description:
-      "Update GLSL source in a playground session. Pushes changes to any connected browser for live preview. Waits up to 5 seconds for a screenshot from the browser. Returns compilation errors (if any) and a screenshot of the rendered result.",
+      "Update shader source in a playground session. For GLSL sessions, provide vertexSource/fragmentSource. For TSL sessions, provide tslSource. Returns compilation errors, structured errors (with kind and message), and a screenshot for GLSL sessions. The previewAvailable flag indicates whether screenshots are supported.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -315,11 +343,15 @@ const TOOLS_MCP_FORMAT = [
         },
         vertexSource: {
           type: "string",
-          description: "New vertex shader GLSL source",
+          description: "New vertex shader GLSL source (GLSL sessions only)",
         },
         fragmentSource: {
           type: "string",
-          description: "New fragment shader GLSL source",
+          description: "New fragment shader GLSL source (GLSL sessions only)",
+        },
+        tslSource: {
+          type: "string",
+          description: "New TSL source code (TSL sessions only)",
         },
       },
       required: ["sessionId"] as const,
@@ -328,7 +360,7 @@ const TOOLS_MCP_FORMAT = [
   {
     name: "get_preview",
     description:
-      "Get the latest screenshot from a playground session. Returns the most recent rendered frame as a PNG image.",
+      "Get the latest screenshot from a playground session. Only available for GLSL sessions (TSL preview not yet implemented). Returns the most recent rendered frame as a PNG image.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -343,7 +375,7 @@ const TOOLS_MCP_FORMAT = [
   {
     name: "get_errors",
     description:
-      "Get compilation errors from a playground session. Returns an array of GLSL compilation error strings with line numbers.",
+      "Get compilation errors from a playground session. Returns plain error strings and structured errors (with kind like 'glsl-compile', 'tsl-parse', 'tsl-runtime', 'tsl-material-build' and message).",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -412,6 +444,7 @@ async function handleMcpToolCall(
         pipeline?: string;
         environment?: string;
         tags?: string[];
+        language?: string;
       },
       registryUrl,
     );
@@ -466,6 +499,8 @@ async function handleMcpToolCall(
       toolArgs as {
         vertexSource?: string;
         fragmentSource?: string;
+        tslSource?: string;
+        language?: string;
         pipeline?: string;
       },
       playgroundEnv,
@@ -480,7 +515,7 @@ async function handleMcpToolCall(
       throw new Error("Missing required parameter: sessionId");
     }
     const result = await handleUpdateShader(
-      toolArgs as { sessionId: string; vertexSource?: string; fragmentSource?: string },
+      toolArgs as { sessionId: string; vertexSource?: string; fragmentSource?: string; tslSource?: string },
       playgroundEnv,
     );
 
@@ -491,7 +526,9 @@ async function handleMcpToolCall(
       type: "text",
       text: JSON.stringify({
         compilationErrors: result.compilationErrors,
+        structuredErrors: result.structuredErrors,
         browserConnected: result.browserConnected,
+        previewAvailable: result.previewAvailable,
       }, null, 2),
     });
 
@@ -522,6 +559,11 @@ async function handleMcpToolCall(
       const base64Data = result.screenshotBase64.replace(/^data:image\/png;base64,/, "");
       return {
         content: [{ type: "image", data: base64Data, mimeType: "image/png" }],
+      };
+    }
+    if (result.language === "tsl") {
+      return {
+        content: [{ type: "text", text: "Preview not available for TSL sessions. TSL preview requires WebGPU which is not yet implemented." }],
       };
     }
     return {

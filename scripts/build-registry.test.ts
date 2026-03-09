@@ -29,8 +29,8 @@ try {
     assert.ok(existsSync(indexPath), "index.json should exist");
 
     const index = JSON.parse(readFileSync(indexPath, "utf8"));
-    assert.equal(index.version, "0.1.0");
-    assert.ok(index.shaders.length >= 3, `expected at least 3 shaders, got ${index.shaders.length}`);
+    assert.equal(index.version, "0.2.0");
+    assert.ok(index.shaders.length >= 4, `expected at least 4 shaders, got ${index.shaders.length}`);
   });
 
   runTest("per-shader bundle files exist", () => {
@@ -82,6 +82,26 @@ try {
     const firstUniform = gradientEntry.uniforms[0];
     assert.ok(firstUniform.name, "uniform should have a name");
     assert.ok(firstUniform.type, "uniform should have a type");
+  });
+
+  runTest("index entries include language field", () => {
+    const index = JSON.parse(readFileSync(join(tempDir, "index.json"), "utf8"));
+    for (const shader of index.shaders) {
+      assert.ok(shader.language, `shader ${shader.name} should have a language field`);
+      assert.ok(
+        shader.language === "glsl" || shader.language === "tsl",
+        `shader ${shader.name} should be glsl or tsl`,
+      );
+    }
+  });
+
+  runTest("TSL shader bundle has tslSource", () => {
+    const bundlePath = join(tempDir, "shaders", "tsl-gradient-wave.json");
+    assert.ok(existsSync(bundlePath), "tsl-gradient-wave.json bundle should exist");
+    const bundle = JSON.parse(readFileSync(bundlePath, "utf8"));
+    assert.equal(bundle.language, "tsl");
+    assert.ok(bundle.tslSource.includes("createMaterial"), "tslSource should contain createMaterial");
+    assert.equal(bundle.vertexSource, undefined, "TSL bundles should not have vertexSource");
   });
 
   runTest("index entries are sorted alphabetically by name", () => {

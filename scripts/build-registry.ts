@@ -36,9 +36,8 @@ export async function buildRegistry({ shadersRoot, outputDir }: BuildRegistryOpt
 
     const manifest = validateShaderManifestFile(manifestPath);
 
-    // Read GLSL source files
-    const vertexSource = readFileSync(join(shaderDir, manifest.files.vertex), "utf8");
-    const fragmentSource = readFileSync(join(shaderDir, manifest.files.fragment), "utf8");
+    // Language is determined by the manifest's discriminated union
+    const language = manifest.language;
 
     // Build recipes record (keyed by target)
     const recipes: Record<string, RegistryRecipeBundle> = {};
@@ -56,6 +55,7 @@ export async function buildRegistry({ shadersRoot, outputDir }: BuildRegistryOpt
           ...(p.example !== undefined ? { example: p.example } : {}),
         })),
         requirements: recipe.requirements,
+        relPath: recipe.path,
       };
     }
 
@@ -113,27 +113,16 @@ export async function buildRegistry({ shadersRoot, outputDir }: BuildRegistryOpt
       renderers: manifest.compatibility.renderers,
       sourceKind: manifest.provenance.sourceKind,
       uniforms: uniformSummaries,
+      language,
     };
 
     indexEntries.push(indexEntry);
 
-    // Shader bundle
-    const bundle: RegistryShaderBundle = {
-      // Index-level fields
-      name: manifest.name,
-      displayName: manifest.displayName,
-      version: manifest.version,
-      summary: manifest.summary,
-      tags: manifest.tags,
-      category: manifest.category,
-      pipeline: manifest.capabilityProfile.pipeline,
-      stage: manifest.capabilityProfile.stage,
-      environments: manifest.compatibility.environments,
-      renderers: manifest.compatibility.renderers,
-      sourceKind: manifest.provenance.sourceKind,
-      uniforms: uniformSummaries,
+    // Shader bundle — build language-specific shape
+    let bundle: RegistryShaderBundle;
 
-      // Extended fields
+    const sharedBundleFields = {
+      ...indexEntry,
       description: manifest.description,
       author: manifest.author,
       license: manifest.license,
@@ -142,11 +131,27 @@ export async function buildRegistry({ shadersRoot, outputDir }: BuildRegistryOpt
       uniformsFull,
       inputs: manifest.inputs,
       outputs: manifest.outputs,
-      vertexSource,
-      fragmentSource,
       recipes,
       provenance,
     };
+
+    if (manifest.language === "glsl") {
+      const vertexSource = readFileSync(join(shaderDir, manifest.files.vertex), "utf8");
+      const fragmentSource = readFileSync(join(shaderDir, manifest.files.fragment), "utf8");
+      bundle = {
+        ...sharedBundleFields,
+        language: "glsl" as const,
+        vertexSource,
+        fragmentSource,
+      };
+    } else {
+      const tslSource = readFileSync(join(shaderDir, manifest.tslEntry), "utf8");
+      bundle = {
+        ...sharedBundleFields,
+        language: "tsl" as const,
+        tslSource,
+      };
+    }
 
     bundles.push({ name: manifest.name, bundle });
   }
@@ -155,7 +160,7 @@ export async function buildRegistry({ shadersRoot, outputDir }: BuildRegistryOpt
   indexEntries.sort((a, b) => a.name.localeCompare(b.name));
 
   const registryIndex: RegistryIndex = {
-    version: "0.1.0",
+    version: "0.2.0",
     generatedAt: new Date().toISOString(),
     shaders: indexEntries,
   };

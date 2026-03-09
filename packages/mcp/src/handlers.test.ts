@@ -22,7 +22,7 @@ function runTest(name: string, callback: () => void | Promise<void>) {
 // ---------------------------------------------------------------------------
 
 const mockIndex: RegistryIndex = {
-  version: "0.1.0",
+  version: "0.2.0",
   generatedAt: "2026-03-07T00:00:00Z",
   shaders: [
     {
@@ -38,6 +38,7 @@ const mockIndex: RegistryIndex = {
       renderers: ["webgl2"],
       sourceKind: "original",
       uniforms: [{ name: "uColor", type: "vec3" }],
+      language: "glsl",
     },
     {
       name: "vignette-postprocess",
@@ -52,6 +53,7 @@ const mockIndex: RegistryIndex = {
       renderers: ["webgl2"],
       sourceKind: "original",
       uniforms: [{ name: "uIntensity", type: "float" }],
+      language: "glsl",
     },
   ],
 };
@@ -69,6 +71,7 @@ const mockBundle: RegistryShaderBundle = {
   renderers: ["webgl2"],
   sourceKind: "original",
   uniforms: [{ name: "uColor", type: "vec3" }],
+  language: "glsl",
   description: "Renders a smooth radial gradient between two colors.",
   author: { name: "ShaderBase" },
   license: "MIT",
@@ -185,7 +188,10 @@ async function main() {
       mockFetch,
     );
     assert.equal(bundle.name, "gradient-radial");
-    assert.ok(bundle.vertexSource.length > 0);
+    assert.equal(bundle.language, "glsl");
+    if (bundle.language === "glsl") {
+      assert.ok(bundle.vertexSource.length > 0);
+    }
     assert.ok(Object.keys(bundle.recipes).length === 2);
     assert.ok("three" in bundle.recipes);
     assert.ok("r3f" in bundle.recipes);
