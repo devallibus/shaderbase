@@ -91,10 +91,18 @@ async function main() {
     const data = await res.json() as Record<string, unknown>;
     assert.equal(data.id, 2);
     const result = data.result as { tools: Array<{ name: string }> };
-    assert.equal(result.tools.length, 3);
+    assert.equal(result.tools.length, 7);
 
     const names = result.tools.map((t) => t.name).sort();
-    assert.deepEqual(names, ["get_shader", "search_shaders", "submit_shader"]);
+    assert.deepEqual(names, [
+      "create_playground",
+      "get_errors",
+      "get_preview",
+      "get_shader",
+      "search_shaders",
+      "submit_shader",
+      "update_shader",
+    ]);
 
     // Verify inputSchema is present on each tool
     for (const tool of result.tools) {
@@ -255,7 +263,7 @@ async function main() {
     );
     assert.equal(res.status, 200);
     const data = await res.json() as { tools: unknown[] };
-    assert.equal(data.tools.length, 3);
+    assert.equal(data.tools.length, 7);
   });
 
   await runTest("GET / returns informational response with /mcp endpoint", async () => {
