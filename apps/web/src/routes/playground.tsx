@@ -6,7 +6,7 @@ import PlaygroundLayout from '../components/playground/PlaygroundLayout'
 import type { PlaygroundSession } from '../lib/playground-types'
 
 const getOrCreateSession = createServerFn({ method: 'GET' })
-  .validator((data: { sessionId?: string }) => data)
+  .inputValidator((data: { sessionId?: string }) => data)
   .handler(async ({ data }) => {
     const { createSession, getSession } = await import('../lib/server/playground-db')
 
