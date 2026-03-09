@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/solid-router'
 import { createServerFn } from '@tanstack/solid-start'
-import { createEffect, createResource, on, Show, Suspense } from 'solid-js'
-import { isServer } from 'solid-js/web'
+import { useServerFn } from '@tanstack/solid-start'
+import { createSignal, onMount, Show } from 'solid-js'
 import PlaygroundLayout from '../components/playground/PlaygroundLayout'
 import type { PlaygroundSession } from '../lib/playground-types'
 
@@ -30,40 +30,36 @@ export const Route = createFileRoute('/playground')({
 function PlaygroundPage() {
   const search = useSearch({ from: '/playground' })
   const navigate = useNavigate()
+  const fetchSession = useServerFn(getOrCreateSession)
+  const [session, setSession] = createSignal<PlaygroundSession | null>(null)
+  const [loading, setLoading] = createSignal(true)
 
-  const [session] = createResource(
-    () => search.session,
-    async (sessionId) => {
-      const result = await getOrCreateSession({ data: { sessionId } })
-      return result as PlaygroundSession
-    },
-  )
+  onMount(async () => {
+    try {
+      const result = await fetchSession({ data: { sessionId: search.session } })
+      const s = result as PlaygroundSession
+      setSession(s)
 
-  // Update URL with session ID after hydration (client-only)
-  createEffect(
-    on(
-      () => session(),
-      (s) => {
-        if (isServer || !s) return
-        if (search.session !== s.id) {
-          navigate({ search: { session: s.id }, replace: true })
-        }
-      },
-      { defer: true },
-    ),
-  )
+      // Update URL with session ID if it changed or was missing
+      if (search.session !== s.id) {
+        navigate({ search: { session: s.id }, replace: true })
+      }
+    } finally {
+      setLoading(false)
+    }
+  })
 
   return (
-    <Suspense
+    <Show
+      when={session()}
+      keyed
       fallback={
         <div class="flex h-[calc(100vh-56px)] items-center justify-center">
           <div class="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
         </div>
       }
     >
-      <Show when={session()} keyed>
-        {(s) => <PlaygroundLayout session={s} />}
-      </Show>
-    </Suspense>
+      {(s) => <PlaygroundLayout session={s} />}
+    </Show>
   )
 }
