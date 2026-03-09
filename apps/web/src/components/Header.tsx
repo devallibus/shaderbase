@@ -21,6 +21,13 @@ export default function Header() {
             shaders
           </Link>
           <Link
+            to="/playground"
+            class="text-text-muted no-underline transition hover:text-text-primary"
+            activeProps={{ class: 'text-text-primary' }}
+          >
+            playground
+          </Link>
+          <Link
             to="/about"
             class="text-text-muted no-underline transition hover:text-text-primary"
             activeProps={{ class: 'text-text-primary' }}
