@@ -4,3 +4,11 @@ compatibility_date = "2026-03-01"
 
 [vars]
 REGISTRY_URL = "https://registry.shaderbase.com"
+WEB_APP_URL = "https://shaderbase.com"
+
+[env.development]
+name = "shaderbase-mcp-dev"
+
+[env.development.vars]
+REGISTRY_URL = "https://registry.shaderbase.com"
+WEB_APP_URL = "https://blissful-acceptance-development.up.railway.app"
