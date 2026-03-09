@@ -117,6 +117,22 @@ const TOOLS = [
       properties: {
         vertexSource: { type: "string", description: "Initial vertex shader GLSL source." },
         fragmentSource: { type: "string", description: "Initial fragment shader GLSL source." },
+        uniforms: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              type: { type: "string" },
+              defaultValue: {},
+              description: { type: "string" },
+              min: { type: "number" },
+              max: { type: "number" },
+            },
+            required: ["name", "type", "defaultValue"],
+          },
+          description: "Uniform definitions for the shader.",
+        },
         pipeline: { type: "string", description: "Rendering pipeline: 'surface', 'postprocessing', or 'geometry'." },
       },
       additionalProperties: false,
@@ -249,6 +265,22 @@ const TOOLS_MCP_FORMAT = [
         fragmentSource: {
           type: "string",
           description: "Initial fragment shader GLSL source (defaults to an animated color gradient)",
+        },
+        uniforms: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              type: { type: "string" },
+              defaultValue: {},
+              description: { type: "string" },
+              min: { type: "number" },
+              max: { type: "number" },
+            },
+            required: ["name", "type", "defaultValue"],
+          },
+          description: "Uniform definitions (name, type, defaultValue, optional min/max/description)",
         },
         pipeline: {
           type: "string",
