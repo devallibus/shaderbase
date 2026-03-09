@@ -3,11 +3,19 @@
 // ---------------------------------------------------------------------------
 
 import { handleSearchShaders, handleGetShader, handleSubmitShader } from "./handlers.ts";
+import {
+  handleCreatePlayground,
+  handleUpdateShader,
+  handleGetPreview,
+  handleGetErrors,
+} from "./playground-handlers.ts";
 
 interface Env {
   REGISTRY_URL?: string;
   ANTHROPIC_API_KEY?: string;
   GITHUB_TOKEN?: string;
+  WEB_APP_URL?: string;
+  PLAYGROUND_SECRET?: string;
 }
 
 const DEFAULT_REGISTRY_URL = "https://shaderbase-registry.pages.dev";
@@ -22,6 +30,19 @@ type JsonRpcRequest = {
   method: string;
   params?: Record<string, unknown>;
 };
+
+type McpTextContent = {
+  type: "text";
+  text: string;
+};
+
+type McpImageContent = {
+  type: "image";
+  data: string;
+  mimeType: string;
+};
+
+type McpContentItem = McpTextContent | McpImageContent;
 
 // ---------------------------------------------------------------------------
 // Tool definitions — HTTP format (used by /tools endpoint)
@@ -100,6 +121,77 @@ const TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: "create_playground",
+    description:
+      "Create a new shader playground session for live GLSL editing with visual preview.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        vertexSource: { type: "string", description: "Initial vertex shader GLSL source." },
+        fragmentSource: { type: "string", description: "Initial fragment shader GLSL source." },
+        uniforms: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              type: { type: "string" },
+              defaultValue: {},
+              description: { type: "string" },
+              min: { type: "number" },
+              max: { type: "number" },
+            },
+            required: ["name", "type", "defaultValue"],
+          },
+          description: "Uniform definitions for the shader.",
+        },
+        pipeline: { type: "string", description: "Rendering pipeline: 'surface', 'postprocessing', or 'geometry'." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "update_shader",
+    description:
+      "Update GLSL source in a playground session. Returns compilation errors and a screenshot.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        sessionId: { type: "string", description: "The playground session ID." },
+        vertexSource: { type: "string", description: "New vertex shader GLSL source." },
+        fragmentSource: { type: "string", description: "New fragment shader GLSL source." },
+      },
+      required: ["sessionId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_preview",
+    description:
+      "Get the latest screenshot from a playground session.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        sessionId: { type: "string", description: "The playground session ID." },
+      },
+      required: ["sessionId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_errors",
+    description:
+      "Get compilation errors from a playground session.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        sessionId: { type: "string", description: "The playground session ID." },
+      },
+      required: ["sessionId"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -172,6 +264,97 @@ const TOOLS_MCP_FORMAT = [
       required: ["source"] as const,
     },
   },
+  {
+    name: "create_playground",
+    description:
+      "Create a new shader playground session for live GLSL editing with visual preview. Returns a session ID and URL to open in a browser. An AI agent can then use update_shader to change the GLSL and get_preview to see screenshots of the result.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        vertexSource: {
+          type: "string",
+          description: "Initial vertex shader GLSL source (defaults to a basic pass-through)",
+        },
+        fragmentSource: {
+          type: "string",
+          description: "Initial fragment shader GLSL source (defaults to an animated color gradient)",
+        },
+        uniforms: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              type: { type: "string" },
+              defaultValue: {},
+              description: { type: "string" },
+              min: { type: "number" },
+              max: { type: "number" },
+            },
+            required: ["name", "type", "defaultValue"],
+          },
+          description: "Uniform definitions (name, type, defaultValue, optional min/max/description)",
+        },
+        pipeline: {
+          type: "string",
+          description: "Rendering pipeline: 'surface' (default), 'postprocessing', or 'geometry'",
+        },
+      },
+    },
+  },
+  {
+    name: "update_shader",
+    description:
+      "Update GLSL source in a playground session. Pushes changes to any connected browser for live preview. Waits up to 5 seconds for a screenshot from the browser. Returns compilation errors (if any) and a screenshot of the rendered result.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        sessionId: {
+          type: "string",
+          description: "The playground session ID from create_playground",
+        },
+        vertexSource: {
+          type: "string",
+          description: "New vertex shader GLSL source",
+        },
+        fragmentSource: {
+          type: "string",
+          description: "New fragment shader GLSL source",
+        },
+      },
+      required: ["sessionId"] as const,
+    },
+  },
+  {
+    name: "get_preview",
+    description:
+      "Get the latest screenshot from a playground session. Returns the most recent rendered frame as a PNG image.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        sessionId: {
+          type: "string",
+          description: "The playground session ID from create_playground",
+        },
+      },
+      required: ["sessionId"] as const,
+    },
+  },
+  {
+    name: "get_errors",
+    description:
+      "Get compilation errors from a playground session. Returns an array of GLSL compilation error strings with line numbers.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        sessionId: {
+          type: "string",
+          description: "The playground session ID from create_playground",
+        },
+      },
+      required: ["sessionId"] as const,
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -220,7 +403,7 @@ async function handleMcpToolCall(
   toolArgs: Record<string, unknown>,
   registryUrl: string,
   env: Env,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<{ content: McpContentItem[] }> {
   if (toolName === "search_shaders") {
     const results = await handleSearchShaders(
       toolArgs as {
@@ -263,6 +446,96 @@ async function handleMcpToolCall(
         anthropicApiKey: env.ANTHROPIC_API_KEY,
         githubToken: env.GITHUB_TOKEN,
       },
+    );
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Playground tools
+  // -------------------------------------------------------------------------
+
+  const playgroundEnv = {
+    webAppUrl: env.WEB_APP_URL ?? "https://shaderbase.com",
+    playgroundSecret: env.PLAYGROUND_SECRET ?? "",
+  };
+
+  if (toolName === "create_playground") {
+    const result = await handleCreatePlayground(
+      toolArgs as {
+        vertexSource?: string;
+        fragmentSource?: string;
+        pipeline?: string;
+      },
+      playgroundEnv,
+    );
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  }
+
+  if (toolName === "update_shader") {
+    if (!toolArgs.sessionId || typeof toolArgs.sessionId !== "string") {
+      throw new Error("Missing required parameter: sessionId");
+    }
+    const result = await handleUpdateShader(
+      toolArgs as { sessionId: string; vertexSource?: string; fragmentSource?: string },
+      playgroundEnv,
+    );
+
+    const content: McpContentItem[] = [];
+
+    // Always include text status
+    content.push({
+      type: "text",
+      text: JSON.stringify({
+        compilationErrors: result.compilationErrors,
+        browserConnected: result.browserConnected,
+      }, null, 2),
+    });
+
+    // Include screenshot as image content if available
+    if (result.screenshotBase64) {
+      // Strip data URI prefix if present
+      const base64Data = result.screenshotBase64.replace(/^data:image\/png;base64,/, "");
+      content.push({
+        type: "image",
+        data: base64Data,
+        mimeType: "image/png",
+      });
+    }
+
+    return { content };
+  }
+
+  if (toolName === "get_preview") {
+    if (!toolArgs.sessionId || typeof toolArgs.sessionId !== "string") {
+      throw new Error("Missing required parameter: sessionId");
+    }
+    const result = await handleGetPreview(
+      toolArgs as { sessionId: string },
+      playgroundEnv,
+    );
+
+    if (result.screenshotBase64) {
+      const base64Data = result.screenshotBase64.replace(/^data:image\/png;base64,/, "");
+      return {
+        content: [{ type: "image", data: base64Data, mimeType: "image/png" }],
+      };
+    }
+    return {
+      content: [{ type: "text", text: "No screenshot available yet. Make sure a browser has the playground open." }],
+    };
+  }
+
+  if (toolName === "get_errors") {
+    if (!toolArgs.sessionId || typeof toolArgs.sessionId !== "string") {
+      throw new Error("Missing required parameter: sessionId");
+    }
+    const result = await handleGetErrors(
+      toolArgs as { sessionId: string },
+      playgroundEnv,
     );
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
