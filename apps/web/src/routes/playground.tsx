@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useSearch } from '@tanstack/solid-router'
+import { createFileRoute, useNavigate } from '@tanstack/solid-router'
 import { createServerFn } from '@tanstack/solid-start'
 import { useServerFn } from '@tanstack/solid-start'
 import { createSignal, onMount, Show } from 'solid-js'
@@ -28,20 +28,25 @@ export const Route = createFileRoute('/playground')({
 })
 
 function PlaygroundPage() {
-  const search = useSearch({ from: '/playground' })
   const navigate = useNavigate()
   const fetchSession = useServerFn(getOrCreateSession)
   const [session, setSession] = createSignal<PlaygroundSession | null>(null)
   const [loading, setLoading] = createSignal(true)
 
+  // Read session ID from URL directly — useSearch reactive value isn't
+  // hydrated yet when onMount fires in TanStack Start + SolidJS.
+  const initialSessionId = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('session') || undefined
+    : undefined
+
   onMount(async () => {
     try {
-      const result = await fetchSession({ data: { sessionId: search.session } })
+      const result = await fetchSession({ data: { sessionId: initialSessionId } })
       const s = result as PlaygroundSession
       setSession(s)
 
       // Update URL with session ID if it changed or was missing
-      if (search.session !== s.id) {
+      if (initialSessionId !== s.id) {
         navigate({ search: { session: s.id }, replace: true })
       }
     } finally {
