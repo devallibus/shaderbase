@@ -1,24 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/solid-router'
-import { createServerFn } from '@tanstack/solid-start'
-import { useServerFn } from '@tanstack/solid-start'
 import { createSignal, onMount, Show } from 'solid-js'
 import PlaygroundLayout from '../components/playground/PlaygroundLayout'
 import type { PlaygroundSession } from '../lib/playground-types'
-
-const getOrCreateSession = createServerFn({ method: 'GET' })
-  .inputValidator((data: { sessionId?: string }) => data)
-  .handler(async ({ data }) => {
-    const { createSession, getSession } = await import('../lib/server/playground-db')
-
-    if (data.sessionId) {
-      const session = getSession(data.sessionId)
-      if (session) return session
-    }
-
-    // No session ID or session not found — create a new one
-    const { session } = createSession()
-    return session
-  })
 
 export const Route = createFileRoute('/playground')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -29,28 +12,36 @@ export const Route = createFileRoute('/playground')({
 
 function PlaygroundPage() {
   const navigate = useNavigate()
-  const fetchSession = useServerFn(getOrCreateSession)
   const [session, setSession] = createSignal<PlaygroundSession | null>(null)
-  const [loading, setLoading] = createSignal(true)
-
-  // Read session ID from URL directly — useSearch reactive value isn't
-  // hydrated yet when onMount fires in TanStack Start + SolidJS.
-  const initialSessionId = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('session') || undefined
-    : undefined
 
   onMount(async () => {
-    try {
-      const result = await fetchSession({ data: { sessionId: initialSessionId } })
-      const s = result as PlaygroundSession
-      setSession(s)
+    const sessionId = new URLSearchParams(window.location.search).get('session') || undefined
 
-      // Update URL with session ID if it changed or was missing
-      if (initialSessionId !== s.id) {
-        navigate({ search: { session: s.id }, replace: true })
+    // If we have a session ID, try to load it; otherwise create a new one
+    let s: PlaygroundSession
+    if (sessionId) {
+      const res = await fetch(`/api/playground/${sessionId}/state`)
+      if (res.ok) {
+        s = await res.json()
+      } else {
+        // Session not found — create a new one
+        const createRes = await fetch('/api/playground/create', { method: 'POST' })
+        const { sessionId: newId } = await createRes.json()
+        const stateRes = await fetch(`/api/playground/${newId}/state`)
+        s = await stateRes.json()
       }
-    } finally {
-      setLoading(false)
+    } else {
+      const createRes = await fetch('/api/playground/create', { method: 'POST' })
+      const { sessionId: newId } = await createRes.json()
+      const stateRes = await fetch(`/api/playground/${newId}/state`)
+      s = await stateRes.json()
+    }
+
+    setSession(s)
+
+    // Update URL with session ID if it changed or was missing
+    if (sessionId !== s.id) {
+      navigate({ search: { session: s.id }, replace: true })
     }
   })
 

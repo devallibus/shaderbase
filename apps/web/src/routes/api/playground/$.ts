@@ -75,8 +75,9 @@ async function handlePlayground(request: Request): Promise<Response> {
   }
 
   // POST /api/playground/create
+  // No auth required — creating an empty session is harmless.
+  // The session UUID acts as the capability token.
   if (segments[0] === 'create' && request.method === 'POST') {
-    if (!isAuthorized(request)) return unauthorizedResponse()
     const body = (await request.json().catch(() => ({}))) as CreateSessionRequest
     const { id } = createSession(body)
     const response: CreateSessionResponse = {
