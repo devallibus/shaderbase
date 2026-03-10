@@ -3,6 +3,8 @@ import { getShaderDetailFromSource } from './shader-source.ts'
 
 export type {
   ShaderDetail,
+  GlslShaderDetail,
+  TslShaderDetail,
   ShaderDetailUniform,
   ShaderDetailRecipe,
 } from './load-shader-detail.ts'

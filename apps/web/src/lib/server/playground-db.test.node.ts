@@ -188,4 +188,18 @@ runTest('updateMetadata stores metadata', () => {
   assert.deepEqual(session.metadata, metadata)
 })
 
+runTest('createSession rejects invalid language', () => {
+  assert.throws(
+    () => createSession({ language: 'foo' as 'glsl' }),
+    /Invalid language "foo"/,
+  )
+})
+
+runTest('createSession rejects arbitrary language strings', () => {
+  assert.throws(
+    () => createSession({ language: 'wgsl' as 'glsl' }),
+    /Invalid language "wgsl"/,
+  )
+})
+
 console.log('playground-db tests passed')

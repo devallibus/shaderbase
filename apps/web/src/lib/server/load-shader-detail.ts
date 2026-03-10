@@ -25,7 +25,7 @@ export type ShaderDetailRecipe = {
   requirements: string[]
 }
 
-export type ShaderDetail = {
+type ShaderDetailBase = {
   name: string
   displayName: string
   version: string
@@ -46,8 +46,6 @@ export type ShaderDetail = {
   uniforms: ShaderDetailUniform[]
   inputs: Array<{ name: string; kind: string; description: string; required: boolean }>
   outputs: Array<{ name: string; kind: string; description: string }>
-  vertexSource: string
-  fragmentSource: string
   recipes: ShaderDetailRecipe[]
   previewSvg: string | null
   provenance: {
@@ -69,6 +67,19 @@ export type ShaderDetail = {
   }
 }
 
+export type GlslShaderDetail = ShaderDetailBase & {
+  language: 'glsl'
+  vertexSource: string
+  fragmentSource: string
+}
+
+export type TslShaderDetail = ShaderDetailBase & {
+  language: 'tsl'
+  tslSource: string
+}
+
+export type ShaderDetail = GlslShaderDetail | TslShaderDetail
+
 /**
  * Load a single shader's full detail from its directory on disk.
  * This is the pure filesystem logic extracted from the getShaderDetail server function.
@@ -77,18 +88,13 @@ export async function loadShaderDetail(shaderDir: string): Promise<ShaderDetail>
   const manifestRaw = await readFile(join(shaderDir, 'shader.json'), 'utf8')
   const manifest = JSON.parse(manifestRaw) as Record<string, unknown>
 
-  const files = manifest.files as { vertex: string; fragment: string }
+  const language = (manifest.language as string) ?? 'glsl'
   const capabilityProfile = manifest.capabilityProfile as Record<string, unknown>
   const compatibility = manifest.compatibility as Record<string, unknown>
   const provenance = manifest.provenance as Record<string, unknown>
   const attribution = provenance.attribution as Record<string, unknown>
   const preview = manifest.preview as { path: string; format: string }
   const recipeMeta = manifest.recipes as Array<Record<string, unknown>>
-
-  const [vertexSource, fragmentSource] = await Promise.all([
-    readFile(join(shaderDir, files.vertex), 'utf8'),
-    readFile(join(shaderDir, files.fragment), 'utf8'),
-  ])
 
   const recipes: ShaderDetailRecipe[] = await Promise.all(
     recipeMeta.map(async (r) => {
@@ -109,13 +115,13 @@ export async function loadShaderDetail(shaderDir: string): Promise<ShaderDetail>
     previewSvg = await readFile(join(shaderDir, preview.path), 'utf8')
   }
 
-  return {
+  const base: Omit<ShaderDetail, 'language' | 'vertexSource' | 'fragmentSource' | 'tslSource'> = {
     name: manifest.name as string,
     displayName: manifest.displayName as string,
     version: manifest.version as string,
     summary: manifest.summary as string,
     description: manifest.description as string,
-    author: manifest.author as ShaderDetail['author'],
+    author: manifest.author as ShaderDetailBase['author'],
     license: manifest.license as string,
     tags: manifest.tags as string[],
     category: manifest.category as string,
@@ -128,15 +134,13 @@ export async function loadShaderDetail(shaderDir: string): Promise<ShaderDetail>
     material: compatibility.material as string,
     environments: compatibility.environments as string[],
     uniforms: manifest.uniforms as ShaderDetailUniform[],
-    inputs: manifest.inputs as ShaderDetail['inputs'],
-    outputs: manifest.outputs as ShaderDetail['outputs'],
-    vertexSource,
-    fragmentSource,
+    inputs: manifest.inputs as ShaderDetailBase['inputs'],
+    outputs: manifest.outputs as ShaderDetailBase['outputs'],
     recipes,
     previewSvg,
     provenance: {
       sourceKind: provenance.sourceKind as string,
-      sources: (provenance.sources as ShaderDetail['provenance']['sources']) ?? [],
+      sources: (provenance.sources as ShaderDetailBase['provenance']['sources']) ?? [],
       attribution: {
         summary: attribution.summary as string,
         requiredNotice: attribution.requiredNotice as string | undefined,
@@ -144,4 +148,17 @@ export async function loadShaderDetail(shaderDir: string): Promise<ShaderDetail>
       notes: provenance.notes as string | undefined,
     },
   }
+
+  if (language === 'tsl') {
+    const tslEntry = manifest.tslEntry as string
+    const tslSource = await readFile(join(shaderDir, tslEntry), 'utf8')
+    return { ...base, language: 'tsl', tslSource }
+  }
+
+  const files = manifest.files as { vertex: string; fragment: string }
+  const [vertexSource, fragmentSource] = await Promise.all([
+    readFile(join(shaderDir, files.vertex), 'utf8'),
+    readFile(join(shaderDir, files.fragment), 'utf8'),
+  ])
+  return { ...base, language: 'glsl', vertexSource, fragmentSource }
 }

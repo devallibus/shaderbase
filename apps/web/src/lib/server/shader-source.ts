@@ -1,5 +1,5 @@
 import type { ShaderEntry } from './list-shaders.ts'
-import type { ShaderDetail, ShaderDetailRecipe } from './load-shader-detail.ts'
+import type { ShaderDetail, ShaderDetailRecipe, GlslShaderDetail, TslShaderDetail } from './load-shader-detail.ts'
 
 /**
  * Environment-aware shader data source.
@@ -62,13 +62,15 @@ export async function getShaderDetailFromSource(name: string): Promise<ShaderDet
       }),
     )
 
-    return {
+    const language = (bundle.language as string) ?? 'glsl'
+
+    const base = {
       name: bundle.name as string,
       displayName: bundle.displayName as string,
       version: bundle.version as string,
       summary: bundle.summary as string,
       description: bundle.description as string,
-      author: bundle.author as ShaderDetail['author'],
+      author: bundle.author as GlslShaderDetail['author'],
       license: bundle.license as string,
       tags: bundle.tags as string[],
       category: bundle.category as string,
@@ -81,22 +83,30 @@ export async function getShaderDetailFromSource(name: string): Promise<ShaderDet
       material: compatibility.material as string,
       environments: compatibility.environments as string[],
       uniforms: uniformsFull,
-      inputs: bundle.inputs as ShaderDetail['inputs'],
-      outputs: bundle.outputs as ShaderDetail['outputs'],
-      vertexSource: bundle.vertexSource as string,
-      fragmentSource: bundle.fragmentSource as string,
+      inputs: bundle.inputs as GlslShaderDetail['inputs'],
+      outputs: bundle.outputs as GlslShaderDetail['outputs'],
       recipes,
       // previewSvg is not available in the registry bundle
       previewSvg: null,
       provenance: {
         sourceKind: provenance.sourceKind as string,
-        sources: (provenance.sources as ShaderDetail['provenance']['sources']) ?? [],
+        sources: (provenance.sources as GlslShaderDetail['provenance']['sources']) ?? [],
         attribution: {
           summary: attribution.summary as string,
           requiredNotice: attribution.requiredNotice as string | undefined,
         },
         notes: provenance.notes as string | undefined,
       },
+    }
+
+    if (language === 'tsl') {
+      return { ...base, language: 'tsl' as const, tslSource: bundle.tslSource as string }
+    }
+    return {
+      ...base,
+      language: 'glsl' as const,
+      vertexSource: bundle.vertexSource as string,
+      fragmentSource: bundle.fragmentSource as string,
     }
   }
 

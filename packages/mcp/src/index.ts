@@ -81,6 +81,7 @@ const TOOLS = [
         },
         language: {
           type: "string",
+          enum: ["glsl", "tsl"],
           description: "Filter by shader language ('glsl' or 'tsl').",
         },
       },
@@ -136,6 +137,7 @@ const TOOLS = [
         fragmentSource: { type: "string", description: "Initial fragment shader GLSL source." },
         language: {
           type: "string",
+          enum: ["glsl", "tsl"],
           description: "Shader language: 'glsl' (default) or 'tsl'.",
         },
         tslSource: {
@@ -245,6 +247,7 @@ const TOOLS_MCP_FORMAT = [
         },
         language: {
           type: "string",
+          enum: ["glsl", "tsl"],
           description: "Filter by shader language ('glsl' or 'tsl').",
         },
       },
@@ -301,6 +304,7 @@ const TOOLS_MCP_FORMAT = [
         },
         language: {
           type: "string",
+          enum: ["glsl", "tsl"],
           description: "Shader language: 'glsl' (default) or 'tsl'.",
         },
         tslSource: {
