@@ -93,14 +93,29 @@ function ShaderDetailPage() {
 
             {/* Preview + Controls */}
             <div class="mb-6 grid gap-4 lg:grid-cols-[1fr_320px]">
-              <ShaderPreviewCanvas
-                vertexSource={s().vertexSource}
-                fragmentSource={s().fragmentSource}
-                uniforms={s().uniforms}
-                uniformOverrides={uniformOverrides()}
-                pipeline={s().pipeline}
-                fallbackSvg={s().previewSvg}
-              />
+              {s().language === 'tsl' ? (
+                <div class="flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-surface-card-border bg-surface-primary">
+                  {s().previewSvg ? (
+                    <div class="h-full w-full" innerHTML={s().previewSvg!} />
+                  ) : (
+                    <div class="text-center">
+                      <p class="text-sm font-medium text-text-secondary">TSL Shader</p>
+                      <p class="mt-1 text-xs text-text-muted">
+                        WebGPU-based preview coming soon.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <ShaderPreviewCanvas
+                  vertexSource={s().language === 'glsl' ? s().vertexSource : ''}
+                  fragmentSource={s().language === 'glsl' ? s().fragmentSource : ''}
+                  uniforms={s().uniforms}
+                  uniformOverrides={uniformOverrides()}
+                  pipeline={s().pipeline}
+                  fallbackSvg={s().previewSvg}
+                />
+              )}
               <SurfaceCard class="max-h-[500px] overflow-y-auto p-5">
                 <UniformControls
                   uniforms={s().uniforms}
@@ -238,8 +253,14 @@ function ShaderDetailPage() {
               <h2 class="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-accent">
                 Shader Source
               </h2>
-              <CodeBlock code={s().vertexSource} language="GLSL (vertex)" />
-              <CodeBlock code={s().fragmentSource} language="GLSL (fragment)" />
+              {s().language === 'tsl' ? (
+                <CodeBlock code={s().tslSource} language="TSL (source.ts)" />
+              ) : (
+                <>
+                  <CodeBlock code={s().vertexSource} language="GLSL (vertex)" />
+                  <CodeBlock code={s().fragmentSource} language="GLSL (fragment)" />
+                </>
+              )}
             </div>
 
             {/* Provenance */}

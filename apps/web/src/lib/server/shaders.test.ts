@@ -132,6 +132,46 @@ async function main() {
     assert.ok(detail.previewSvg!.includes('<svg'), 'previewSvg should contain SVG markup')
   })
 
+  // ---------------------------------------------------------------------------
+  // TSL shader detail tests
+  // ---------------------------------------------------------------------------
+
+  await runTest('loadShaderDetail — loads TSL shader with tslSource', async () => {
+    const detail = await loadShaderDetail(resolve(shadersRoot, 'tsl-gradient-wave'))
+    assert.equal(detail.language, 'tsl')
+    assert.equal(detail.name, 'tsl-gradient-wave')
+    assert.equal(detail.displayName, 'TSL Gradient Wave')
+    assert.ok('tslSource' in detail, 'TSL detail should have tslSource')
+    assert.ok(detail.tslSource.includes('createMaterial'), 'tslSource should contain createMaterial')
+    assert.ok(!('vertexSource' in detail), 'TSL detail should not have vertexSource')
+    assert.ok(!('fragmentSource' in detail), 'TSL detail should not have fragmentSource')
+  })
+
+  await runTest('loadShaderDetail — TSL shader has correct metadata', async () => {
+    const detail = await loadShaderDetail(resolve(shadersRoot, 'tsl-gradient-wave'))
+    assert.equal(detail.category, 'color')
+    assert.equal(detail.pipeline, 'surface')
+    assert.equal(detail.material, 'node-material')
+    assert.deepEqual(detail.renderers, ['webgpu'])
+    assert.ok(detail.tags.includes('tsl'), 'Expected "tsl" tag')
+  })
+
+  await runTest('loadShaderDetail — TSL shader loads recipes', async () => {
+    const detail = await loadShaderDetail(resolve(shadersRoot, 'tsl-gradient-wave'))
+    assert.ok(detail.recipes.length >= 1, 'Expected at least 1 recipe')
+    const threeRecipe = detail.recipes.find((r) => r.target === 'three')
+    assert.ok(threeRecipe, 'Should have a "three" recipe')
+    assert.ok(threeRecipe.code.length > 0, 'recipe code should not be empty')
+  })
+
+  await runTest('loadShaderDetail — GLSL shader has language glsl', async () => {
+    const detail = await loadShaderDetail(resolve(shadersRoot, 'gradient-radial'))
+    assert.equal(detail.language, 'glsl')
+    assert.ok('vertexSource' in detail, 'GLSL detail should have vertexSource')
+    assert.ok('fragmentSource' in detail, 'GLSL detail should have fragmentSource')
+    assert.ok(!('tslSource' in detail), 'GLSL detail should not have tslSource')
+  })
+
   console.log('shaders tests passed')
 }
 
