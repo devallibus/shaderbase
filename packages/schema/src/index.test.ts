@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { shaderManifestSchema, validateShaderManifestFile } from "./index.ts";
+import { buildTslPreviewModule } from "./tsl-preview-module.ts";
 
 const fixtureManifestPath = fileURLToPath(
   new URL("../../../shaders/gradient-radial/shader.json", import.meta.url),
@@ -12,17 +13,22 @@ const sourcedFixtureManifestPath = fileURLToPath(
   new URL("../../../shaders/vignette-postprocess/shader.json", import.meta.url),
 );
 
-function runTest(name: string, callback: () => void) {
-  try {
-    callback();
-    console.log(`ok ${name}`);
-  } catch (error) {
-    console.error(`not ok ${name}`);
-    throw error;
+function runTest(name: string, callback: () => void | Promise<void>) {
+  const result = callback();
+  if (result instanceof Promise) {
+    return result.then(
+      () => console.log(`ok ${name}`),
+      (error) => {
+        console.error(`not ok ${name}`);
+        throw error;
+      },
+    );
   }
+
+  console.log(`ok ${name}`);
 }
 
-runTest("validates the seed shader manifest", () => {
+await runTest("validates the seed shader manifest", () => {
   const manifest = validateShaderManifestFile(fixtureManifestPath);
 
   assert.equal(manifest.name, "gradient-radial");
@@ -30,7 +36,7 @@ runTest("validates the seed shader manifest", () => {
   assert.ok(manifest.compatibility.environments.includes("three"));
 });
 
-runTest("validates an adapted upstream shader manifest", () => {
+await runTest("validates an adapted upstream shader manifest", () => {
   const manifest = validateShaderManifestFile(sourcedFixtureManifestPath);
 
   assert.equal(manifest.name, "vignette-postprocess");
@@ -42,7 +48,7 @@ runTest("validates an adapted upstream shader manifest", () => {
   );
 });
 
-runTest("rejects invalid uniform defaults", () => {
+await runTest("rejects invalid uniform defaults", () => {
   const manifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8")) as Record<string, unknown>;
   const uniforms = manifest.uniforms as Array<Record<string, unknown>>;
 
@@ -53,7 +59,7 @@ runTest("rejects invalid uniform defaults", () => {
   assert.equal(result.success, false);
 });
 
-runTest("rejects adapted manifests without exact provenance", () => {
+await runTest("rejects adapted manifests without exact provenance", () => {
   const manifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8")) as Record<string, unknown>;
 
   manifest.provenance = {
@@ -69,7 +75,7 @@ runTest("rejects adapted manifests without exact provenance", () => {
   assert.equal(result.success, false);
 });
 
-runTest("rejects missing referenced files", () => {
+await runTest("rejects missing referenced files", () => {
   const tempDirectory = mkdtempSync(join(tmpdir(), "shaderbase-schema-"));
   const shaderDirectory = join(tempDirectory, "gradient-radial");
   const recipeDirectory = join(shaderDirectory, "recipes");
@@ -104,7 +110,7 @@ runTest("rejects missing referenced files", () => {
   }
 });
 
-runTest("defaults language to glsl when missing", () => {
+await runTest("defaults language to glsl when missing", () => {
   const manifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8")) as Record<string, unknown>;
   delete manifest.language;
 
@@ -115,7 +121,7 @@ runTest("defaults language to glsl when missing", () => {
   }
 });
 
-runTest("validates a TSL manifest", () => {
+await runTest("validates a TSL manifest", () => {
   const manifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8")) as Record<string, unknown>;
   manifest.language = "tsl";
   manifest.tslEntry = "source.ts";
@@ -133,13 +139,43 @@ runTest("validates a TSL manifest", () => {
   }
 });
 
-runTest("rejects TSL manifest without tslEntry", () => {
+await runTest("rejects TSL manifest without tslEntry", () => {
   const manifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8")) as Record<string, unknown>;
   manifest.language = "tsl";
   delete manifest.files;
 
   const result = shaderManifestSchema.safeParse(manifest);
   assert.equal(result.success, false);
+});
+
+await runTest("buildTslPreviewModule binds runtime imports inside createPreview", async () => {
+  const previewModule = buildTslPreviewModule(`
+import { color } from 'three/tsl';
+import { NodeMaterial } from 'three/webgpu';
+
+export function createMaterial() {
+  const material = new NodeMaterial();
+  material.colorNode = color(0xff0000);
+  return material;
+}
+`);
+
+  const module = await import(`data:text/javascript,${encodeURIComponent(previewModule)}`);
+
+  class FakeNodeMaterial {
+    colorNode?: number;
+  }
+
+  const preview = module.createPreview({
+    THREE: { NodeMaterial: FakeNodeMaterial },
+    TSL: { color: (value: number) => value },
+    width: 512,
+    height: 512,
+    pipeline: "surface",
+  });
+
+  assert.ok(preview.material instanceof FakeNodeMaterial);
+  assert.equal((preview.material as FakeNodeMaterial).colorNode, 0xff0000);
 });
 
 console.log("schema tests passed");

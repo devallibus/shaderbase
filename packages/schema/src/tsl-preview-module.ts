@@ -81,19 +81,17 @@ function normalizeTslSource(sourceCode: string) {
 export function buildTslPreviewModule(sourceCode: string) {
   const { normalizedSource, tslBindings, webgpuBindings } = normalizeTslSource(sourceCode)
 
-  const moduleBody = [
+  const createPreviewBody = [
+    'const TSL = runtime.TSL;',
+    'const THREE = runtime.THREE;',
     buildDestructureLine('TSL', tslBindings),
     buildDestructureLine('THREE', webgpuBindings),
     normalizedSource.trim(),
-    `
-export function createPreview(runtime) {
-  const material = createMaterial();
-  return { material };
-}
-`.trim(),
+    'const material = createMaterial();',
+    'return { material };',
   ]
     .filter(Boolean)
     .join('\n\n')
 
-  return `${moduleBody}\n`
+  return `export function createPreview(runtime) {\n${createPreviewBody}\n}\n`
 }
