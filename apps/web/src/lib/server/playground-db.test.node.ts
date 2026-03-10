@@ -8,10 +8,13 @@ process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'playground-test-'))
 const {
   createSession,
   getSession,
+  waitForBrowserSyncResult,
+  waitForErrorReport,
   updateShader,
   setScreenshot,
   setErrors,
   setStructuredErrors,
+  recordErrorReport,
   setUniformValues,
   updateMetadata,
 } = await import('./playground-db.ts')
@@ -170,6 +173,101 @@ runTest('setStructuredErrors stores structured errors', () => {
   setStructuredErrors(id, [...errors])
   const session = getSession(id)!
   assert.deepEqual(session.structuredErrors, errors)
+})
+
+runTest('waitForErrorReport resolves when browser posts errors', async () => {
+  const { id } = createSession()
+  const wait = waitForErrorReport(id, 1_000)
+
+  setTimeout(() => {
+    recordErrorReport(id, {
+      errors: ['shader failed'],
+      structuredErrors: [],
+    })
+  }, 20)
+
+  const report = await wait
+  assert.deepEqual(report, {
+    errors: ['shader failed'],
+    structuredErrors: [],
+  })
+})
+
+runTest('waitForBrowserSyncResult resolves early on compilation errors', async () => {
+  const { id } = createSession()
+  const startedAt = Date.now()
+  const wait = waitForBrowserSyncResult(id, 1_000)
+
+  setTimeout(() => {
+    recordErrorReport(id, {
+      errors: ['compile failed'],
+      structuredErrors: [],
+    })
+  }, 20)
+
+  const result = await wait
+  assert.equal(Date.now() - startedAt < 500, true)
+  assert.equal(result.screenshotBase64, null)
+  assert.deepEqual(result.errorReport, {
+    errors: ['compile failed'],
+    structuredErrors: [],
+  })
+})
+
+runTest('waitForBrowserSyncResult waits for screenshot after a successful empty error report', async () => {
+  const { id } = createSession()
+  const startedAt = Date.now()
+  const wait = waitForBrowserSyncResult(id, 1_000)
+
+  setTimeout(() => {
+    recordErrorReport(id, {
+      errors: [],
+      structuredErrors: [],
+    })
+  }, 20)
+
+  setTimeout(() => {
+    setScreenshot(id, 'data:image/png;base64,ok')
+  }, 60)
+
+  const result = await wait
+  const elapsedMs = Date.now() - startedAt
+
+  assert.equal(elapsedMs >= 40, true)
+  assert.equal(elapsedMs < 500, true)
+  assert.equal(result.screenshotBase64, 'data:image/png;base64,ok')
+  assert.deepEqual(result.errorReport, {
+    errors: [],
+    structuredErrors: [],
+  })
+})
+
+runTest('waitForBrowserSyncResult waits for the error-clear report after screenshot success', async () => {
+  const { id } = createSession()
+  const startedAt = Date.now()
+  const wait = waitForBrowserSyncResult(id, 1_000)
+
+  setTimeout(() => {
+    setScreenshot(id, 'data:image/png;base64,ok')
+  }, 20)
+
+  setTimeout(() => {
+    recordErrorReport(id, {
+      errors: [],
+      structuredErrors: [],
+    })
+  }, 60)
+
+  const result = await wait
+  const elapsedMs = Date.now() - startedAt
+
+  assert.equal(elapsedMs >= 40, true)
+  assert.equal(elapsedMs < 500, true)
+  assert.equal(result.screenshotBase64, 'data:image/png;base64,ok')
+  assert.deepEqual(result.errorReport, {
+    errors: [],
+    structuredErrors: [],
+  })
 })
 
 runTest('setUniformValues stores values', () => {

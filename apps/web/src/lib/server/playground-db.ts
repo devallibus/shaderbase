@@ -135,6 +135,12 @@ const sseConnections = new Map<string, Set<WritableStreamDefaultWriter<Uint8Arra
 // Screenshot wait queue: when an update is posted, the API waits for the
 // browser to send a screenshot back. This map stores resolve callbacks.
 const screenshotWaiters = new Map<string, Array<(base64: string | null) => void>>()
+const errorReportWaiters = new Map<string, Array<(report: ErrorReportPayload | null) => void>>()
+
+export type ErrorReportPayload = {
+  errors: string[]
+  structuredErrors: PlaygroundError[]
+}
 
 export function addSSEConnection(sessionId: string, writer: WritableStreamDefaultWriter<Uint8Array>) {
   let set = sseConnections.get(sessionId)
@@ -201,6 +207,85 @@ export function resolveScreenshotWaiters(sessionId: string, base64: string) {
   for (const resolve of list) {
     resolve(base64)
   }
+}
+
+export function waitForErrorReport(sessionId: string, timeoutMs: number): Promise<ErrorReportPayload | null> {
+  return new Promise((resolve) => {
+    const list = errorReportWaiters.get(sessionId) ?? []
+    list.push(resolve)
+    errorReportWaiters.set(sessionId, list)
+    setTimeout(() => {
+      const current = errorReportWaiters.get(sessionId)
+      if (current) {
+        const idx = current.indexOf(resolve)
+        if (idx !== -1) {
+          current.splice(idx, 1)
+          if (current.length === 0) errorReportWaiters.delete(sessionId)
+        }
+      }
+      resolve(null)
+    }, timeoutMs)
+  })
+}
+
+export function resolveErrorReportWaiters(sessionId: string, report: ErrorReportPayload) {
+  const list = errorReportWaiters.get(sessionId)
+  if (!list || list.length === 0) return
+  errorReportWaiters.delete(sessionId)
+  for (const resolve of list) {
+    resolve(report)
+  }
+}
+
+export async function waitForBrowserSyncResult(sessionId: string, timeoutMs: number): Promise<{
+  screenshotBase64: string | null
+  errorReport: ErrorReportPayload | null
+}> {
+  const screenshotPromise = waitForScreenshot(sessionId, timeoutMs).then((base64) => ({
+    type: 'screenshot' as const,
+    base64,
+  }))
+  const errorPromise = waitForErrorReport(sessionId, timeoutMs).then((report) => ({
+    type: 'errorReport' as const,
+    report,
+  }))
+
+  let waitForScreenshotEvent = true
+  let waitForErrorEvent = true
+  let screenshotBase64: string | null = null
+  let errorReport: ErrorReportPayload | null = null
+
+  while (waitForScreenshotEvent || waitForErrorEvent) {
+    const pending: Array<
+      Promise<
+        | { type: 'screenshot'; base64: string | null }
+        | { type: 'errorReport'; report: ErrorReportPayload | null }
+      >
+    > = []
+
+    if (waitForScreenshotEvent) pending.push(screenshotPromise)
+    if (waitForErrorEvent) pending.push(errorPromise)
+
+    const next = await Promise.race(pending)
+
+    if (next.type === 'screenshot') {
+      waitForScreenshotEvent = false
+      screenshotBase64 = next.base64
+    } else {
+      waitForErrorEvent = false
+      errorReport = next.report
+    }
+
+    const hasCompilationErrors = !!errorReport
+      && (errorReport.errors.length > 0 || errorReport.structuredErrors.length > 0)
+    const hasSuccessfulSync = screenshotBase64 !== null && errorReport !== null
+
+    if (hasCompilationErrors || hasSuccessfulSync) {
+      break
+    }
+  }
+
+  return { screenshotBase64, errorReport }
 }
 
 // ---------------------------------------------------------------------------
@@ -352,6 +437,12 @@ export function setStructuredErrors(id: string, errors: PlaygroundError[]): void
   db.prepare(
     `UPDATE playground_sessions SET structured_errors_json = ?, updated_at = datetime('now') WHERE id = ?`,
   ).run(JSON.stringify(errors), id)
+}
+
+export function recordErrorReport(id: string, report: ErrorReportPayload): void {
+  setErrors(id, report.errors)
+  setStructuredErrors(id, report.structuredErrors)
+  resolveErrorReportWaiters(id, report)
 }
 
 export function setUniformValues(id: string, values: Record<string, unknown>): void {
