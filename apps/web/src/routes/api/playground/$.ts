@@ -4,7 +4,6 @@ import {
   getSession,
   updateShader,
   setScreenshot,
-  setErrors,
   recordErrorReport,
   hasSSEConnections,
   addSSEConnection,

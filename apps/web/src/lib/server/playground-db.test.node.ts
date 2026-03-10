@@ -270,6 +270,35 @@ runTest('waitForBrowserSyncResult waits for the error-clear report after screens
   })
 })
 
+runTest('waitForBrowserSyncResult returns nulls when the browser never responds', async () => {
+  const { id } = createSession()
+  const result = await waitForBrowserSyncResult(id, 25)
+
+  assert.deepEqual(result, {
+    screenshotBase64: null,
+    errorReport: null,
+  })
+})
+
+runTest('waitForBrowserSyncResult treats structured errors as compilation failures', async () => {
+  const { id } = createSession({ language: 'tsl', tslSource: 'export function createMaterial() {}' })
+  const wait = waitForBrowserSyncResult(id, 1_000)
+
+  setTimeout(() => {
+    recordErrorReport(id, {
+      errors: [],
+      structuredErrors: [{ kind: 'tsl-runtime', message: 'material build failed' }],
+    })
+  }, 20)
+
+  const result = await wait
+  assert.equal(result.screenshotBase64, null)
+  assert.deepEqual(result.errorReport, {
+    errors: [],
+    structuredErrors: [{ kind: 'tsl-runtime', message: 'material build failed' }],
+  })
+})
+
 runTest('setUniformValues stores values', () => {
   const { id } = createSession()
   const values = { uTime: 1.5, uColor: [1, 0, 0] }

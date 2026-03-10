@@ -61,4 +61,17 @@ runTest('collectShaderDiagnostics falls back to a generic compile message', () =
   ])
 })
 
+runTest('collectShaderDiagnostics falls back to a generic link message', () => {
+  const diagnostics = collectShaderDiagnostics({
+    gl: mockGl,
+    program: { log: null },
+    vertexShader: { ok: true, log: null },
+    fragmentShader: { ok: true, log: null },
+  })
+
+  assert.deepEqual(diagnostics, [
+    { kind: 'glsl-link', message: 'GLSL program linking failed.' },
+  ])
+})
+
 console.log('webgl-shader-errors tests passed')
