@@ -99,6 +99,7 @@ function ShaderDetailPage() {
                   previewModule={s().previewModule}
                   pipeline={s().pipeline}
                   fallbackSvg={s().previewSvg}
+                  uniformOverrides={uniformOverrides()}
                 />
               ) : (
                 <ShaderPreviewCanvas
@@ -110,12 +111,14 @@ function ShaderDetailPage() {
                   fallbackSvg={s().previewSvg}
                 />
               )}
-              <SurfaceCard class="max-h-[500px] overflow-y-auto p-5">
-                <UniformControls
-                  uniforms={s().uniforms}
-                  onUniformChange={handleUniformChange}
-                />
-              </SurfaceCard>
+              <Show when={s().uniforms.length > 0}>
+                <SurfaceCard class="max-h-[500px] overflow-y-auto p-5">
+                  <UniformControls
+                    uniforms={s().uniforms}
+                    onUniformChange={handleUniformChange}
+                  />
+                </SurfaceCard>
+              </Show>
             </div>
 
             {/* Description */}

@@ -153,9 +153,9 @@ await runTest("buildTslPreviewModule binds runtime imports inside createPreview"
 import { color } from 'three/tsl';
 import { NodeMaterial } from 'three/webgpu';
 
-export function createMaterial() {
+export function createMaterial(runtime) {
   const material = new NodeMaterial();
-  material.colorNode = color(0xff0000);
+  material.colorNode = color(runtime.uniforms.tint);
   return material;
 }
 `);
@@ -172,6 +172,7 @@ export function createMaterial() {
     width: 512,
     height: 512,
     pipeline: "surface",
+    uniforms: { tint: 0xff0000 },
   });
 
   assert.ok(preview.material instanceof FakeNodeMaterial);

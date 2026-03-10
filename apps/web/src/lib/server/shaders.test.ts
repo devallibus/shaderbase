@@ -182,6 +182,9 @@ async function main() {
     assert.equal(detail.material, 'node-material')
     assert.deepEqual(detail.renderers, ['webgpu'])
     assert.ok(detail.tags.includes('tsl'), 'Expected "tsl" tag')
+    assert.equal(detail.uniforms.length, 5)
+    assert.ok(detail.uniforms.some((u) => u.name === 'uColorA'))
+    assert.ok(detail.uniforms.some((u) => u.name === 'uWaveSpeed'))
   })
 
   await runTest('loadShaderDetail — TSL shader loads recipes', async () => {
