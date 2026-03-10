@@ -47,7 +47,7 @@ jobs:
 
   deploy-registry:
     needs: check
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/development')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -69,11 +69,19 @@ jobs:
       - name: Build Registry
         run: bun run build:registry
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy Registry (production)
+        if: github.ref == 'refs/heads/master'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: pages deploy dist/registry --project-name=shaderbase-registry
+          command: pages deploy dist/registry --project-name=shaderbase-registry --branch=master
+
+      - name: Deploy Registry (development)
+        if: github.ref == 'refs/heads/development'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: pages deploy dist/registry --project-name=shaderbase-registry --branch=development
 
   # Web app deployment is pending — SolidJS + TanStack Start + Cloudflare Workers
   # has a known bundling issue (ssrStyleProperty not exported in worker mode).
