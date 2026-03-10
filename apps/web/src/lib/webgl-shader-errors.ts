@@ -11,8 +11,8 @@ type ShaderLogContext = {
     getShaderParameter: (shader: unknown, pname: number) => boolean
   }
   program: unknown
-  vertexShader?: unknown | null
-  fragmentShader?: unknown | null
+  vertexShader?: unknown
+  fragmentShader?: unknown
 }
 
 function normalizeLog(log: string | null | undefined): string {
