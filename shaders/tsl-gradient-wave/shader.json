@@ -24,7 +24,48 @@
     "material": "node-material",
     "environments": ["three"]
   },
-  "uniforms": [],
+  "uniforms": [
+    {
+      "name": "uColorA",
+      "type": "vec3",
+      "defaultValue": [0.1019607843, 0.1019607843, 0.1803921569],
+      "description": "Primary gradient color.",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "uColorB",
+      "type": "vec3",
+      "defaultValue": [0.9137254902, 0.2705882353, 0.3764705882],
+      "description": "Secondary gradient color.",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "uWaveSpeed",
+      "type": "float",
+      "defaultValue": 2,
+      "description": "Animation speed of the wave motion.",
+      "min": 0.1,
+      "max": 8
+    },
+    {
+      "name": "uWaveMix",
+      "type": "float",
+      "defaultValue": 0.5,
+      "description": "Blend between horizontal and vertical UV influence.",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "uWaveFrequency",
+      "type": "float",
+      "defaultValue": 6,
+      "description": "Frequency of the gradient wave pattern.",
+      "min": 0.5,
+      "max": 16
+    }
+  ],
   "inputs": [
     {
       "name": "uv",

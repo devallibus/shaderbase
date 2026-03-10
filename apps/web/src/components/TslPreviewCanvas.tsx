@@ -11,6 +11,7 @@ type TslPreviewCanvasProps = {
   previewModule: string
   pipeline: string
   fallbackSvg?: string | null
+  uniformOverrides?: Record<string, number | number[] | boolean>
   onError?: (errors: string[]) => void
   onScreenshotReady?: (base64: string) => void
 }
@@ -118,6 +119,7 @@ export default function TslPreviewCanvas(props: TslPreviewCanvasProps) {
         width,
         height,
         pipeline: props.pipeline,
+        uniforms: props.uniformOverrides ?? {},
       })
 
       if (!nextPreview?.material || typeof nextPreview.material !== 'object') {
@@ -249,6 +251,18 @@ export default function TslPreviewCanvas(props: TslPreviewCanvasProps) {
         if (!runtime || !renderer) return
         setLoading(true)
         await renderPreview(previewModule)
+      },
+      { defer: true },
+    ),
+  )
+
+  createEffect(
+    on(
+      () => JSON.stringify(props.uniformOverrides ?? {}),
+      async () => {
+        if (!runtime || !renderer) return
+        setLoading(true)
+        await renderPreview(props.previewModule)
       },
       { defer: true },
     ),

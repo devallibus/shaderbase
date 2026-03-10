@@ -9,6 +9,7 @@ export type TslPreviewModuleRuntime = {
   width: number
   height: number
   pipeline: string
+  uniforms: Record<string, unknown>
 }
 
 export type TslPreviewModuleResult = {
@@ -87,7 +88,7 @@ export function buildTslPreviewModule(sourceCode: string) {
     buildDestructureLine('TSL', tslBindings),
     buildDestructureLine('THREE', webgpuBindings),
     normalizedSource.trim(),
-    'const material = createMaterial();',
+    'const material = createMaterial(runtime);',
     'return { material };',
   ]
     .filter(Boolean)
