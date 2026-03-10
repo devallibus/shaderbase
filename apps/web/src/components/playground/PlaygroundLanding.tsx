@@ -1,3 +1,4 @@
+import { Show } from 'solid-js'
 import CodeBlock from '../CodeBlock'
 import Badge from '../ui/Badge'
 import SurfaceCard from '../ui/SurfaceCard'
@@ -51,8 +52,8 @@ export default function PlaygroundLanding(props: PlaygroundLandingProps) {
                 , then keep iterating with live previews, screenshots, and structured error feedback.
               </p>
 
-              <div class="mt-8 space-y-3">
-                <div class="flex gap-4 rounded-2xl border border-surface-card-border/80 bg-surface-primary/70 px-4 py-4">
+              <ol class="mt-8 space-y-3">
+                <li class="flex gap-4 rounded-2xl border border-surface-card-border/80 bg-surface-primary/70 px-4 py-4">
                   <span class="font-mono text-xs font-semibold tracking-[0.18em] text-accent">01</span>
                   <p class="text-sm leading-6 text-text-secondary">
                     Point your MCP client at
@@ -61,9 +62,9 @@ export default function PlaygroundLanding(props: PlaygroundLandingProps) {
                     {' '}
                     so it can access the remote ShaderBase tools.
                   </p>
-                </div>
+                </li>
 
-                <div class="flex gap-4 rounded-2xl border border-surface-card-border/80 bg-surface-primary/70 px-4 py-4">
+                <li class="flex gap-4 rounded-2xl border border-surface-card-border/80 bg-surface-primary/70 px-4 py-4">
                   <span class="font-mono text-xs font-semibold tracking-[0.18em] text-accent">02</span>
                   <p class="text-sm leading-6 text-text-secondary">
                     Start a session with
@@ -76,9 +77,9 @@ export default function PlaygroundLanding(props: PlaygroundLandingProps) {
                     {' '}
                     URL in a browser tab.
                   </p>
-                </div>
+                </li>
 
-                <div class="flex gap-4 rounded-2xl border border-surface-card-border/80 bg-surface-primary/70 px-4 py-4">
+                <li class="flex gap-4 rounded-2xl border border-surface-card-border/80 bg-surface-primary/70 px-4 py-4">
                   <span class="font-mono text-xs font-semibold tracking-[0.18em] text-accent">03</span>
                   <p class="text-sm leading-6 text-text-secondary">
                     Iterate from your agent with
@@ -92,8 +93,8 @@ export default function PlaygroundLanding(props: PlaygroundLandingProps) {
                     <code class="font-mono text-text-primary">get_errors</code>
                     .
                   </p>
-                </div>
-              </div>
+                </li>
+              </ol>
 
               <div class="mt-8 grid gap-4 sm:grid-cols-2">
                 <div class="rounded-2xl border border-surface-card-border/80 bg-surface-primary/70 p-4">
@@ -150,11 +151,11 @@ export default function PlaygroundLanding(props: PlaygroundLandingProps) {
                 Manual sessions are useful for quick experiments, but they are not the primary MCP workflow.
               </p>
 
-              {props.error ? (
+              <Show when={props.error}>
                 <div class="mt-4 rounded-2xl border border-danger/20 bg-danger-dim/35 px-4 py-3 text-sm text-danger">
-                  {props.error}
+                  <p role="alert" aria-live="assertive">{props.error}</p>
                 </div>
-              ) : null}
+              </Show>
             </div>
 
             <div class="space-y-4">
