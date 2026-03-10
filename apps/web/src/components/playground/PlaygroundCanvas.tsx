@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, on, onCleanup, onMount } from 'solid-js'
 import { buildTslPreviewModule } from '../../../../../packages/schema/src/tsl-preview-module.ts'
+import { collectShaderDiagnostics, diagnosticsToMessages } from '../../lib/webgl-shader-errors'
 import TslPreviewCanvas from '../TslPreviewCanvas'
 
 type THREE = typeof import('three')
@@ -186,32 +187,40 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
     mesh = new THREE.Mesh(geometry, material)
     scene.add(mesh)
 
-    // Test compile
-    renderer.render(scene, camera)
-    const gl = renderer.getContext()
-    const glProgram = gl.getParameter(gl.CURRENT_PROGRAM)
+    const shaderDiagnostics: ReturnType<typeof collectShaderDiagnostics> = []
+    const previousShaderError = renderer.debug.onShaderError
 
-    if (glProgram) {
-      // Check vertex shader
-      const vertShader = gl.getAttachedShaders(glProgram)
-      const errors: string[] = []
-      if (vertShader) {
-        for (const s of vertShader) {
-          if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-            const log = gl.getShaderInfoLog(s)
-            if (log) errors.push(log)
-          }
-        }
-      }
-      if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
-        const log = gl.getProgramInfoLog(glProgram)
-        if (log) errors.push(log)
-      }
+    renderer.debug.onShaderError = (gl, program, glVertexShader, glFragmentShader) => {
+      shaderDiagnostics.splice(
+        0,
+        shaderDiagnostics.length,
+        ...collectShaderDiagnostics({
+          gl,
+          program,
+          vertexShader: glVertexShader,
+          fragmentShader: glFragmentShader,
+        }),
+      )
+    }
 
-      if (errors.length > 0) {
-        props.onError(errors)
-        return
-      }
+    try {
+      renderer.render(scene, camera)
+    } catch (renderError) {
+      const fallbackMessage = renderError instanceof Error
+        ? renderError.message
+        : 'Shader compilation failed'
+
+      props.onError(
+        shaderDiagnostics.length > 0 ? diagnosticsToMessages(shaderDiagnostics) : [fallbackMessage],
+      )
+      return
+    } finally {
+      renderer.debug.onShaderError = previousShaderError
+    }
+
+    if (shaderDiagnostics.length > 0) {
+      props.onError(diagnosticsToMessages(shaderDiagnostics))
+      return
     }
 
     // No errors — clear any previous errors and capture screenshot
