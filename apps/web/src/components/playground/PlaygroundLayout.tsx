@@ -182,6 +182,7 @@ export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
             <PlaygroundCanvas
               vertexSource={vertexSource()}
               fragmentSource={fragmentSource()}
+              tslSource={tslSource()}
               pipeline={props.session.pipeline}
               language={props.session.language}
               onError={handleErrors}

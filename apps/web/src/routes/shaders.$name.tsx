@@ -5,6 +5,7 @@ import { getShaderDetail, type ShaderDetail } from '../lib/server/shader-detail'
 import { getReviews } from './api/-reviews'
 import type { Review, ReviewStats } from '../lib/server/reviews-db'
 import ShaderPreviewCanvas from '../components/ShaderPreviewCanvas'
+import TslPreviewCanvas from '../components/TslPreviewCanvas'
 import UniformControls from '../components/UniformControls'
 import CodeBlock from '../components/CodeBlock'
 import ReviewsSection from '../components/ReviewsSection'
@@ -94,18 +95,11 @@ function ShaderDetailPage() {
             {/* Preview + Controls */}
             <div class="mb-6 grid gap-4 lg:grid-cols-[1fr_320px]">
               {s().language === 'tsl' ? (
-                <div class="flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-surface-card-border bg-surface-primary">
-                  {s().previewSvg ? (
-                    <div class="h-full w-full" innerHTML={s().previewSvg!} />
-                  ) : (
-                    <div class="text-center">
-                      <p class="text-sm font-medium text-text-secondary">TSL Shader</p>
-                      <p class="mt-1 text-xs text-text-muted">
-                        WebGPU-based preview coming soon.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                <TslPreviewCanvas
+                  previewModule={s().previewModule}
+                  pipeline={s().pipeline}
+                  fallbackSvg={s().previewSvg}
+                />
               ) : (
                 <ShaderPreviewCanvas
                   vertexSource={s().language === 'glsl' ? s().vertexSource : ''}

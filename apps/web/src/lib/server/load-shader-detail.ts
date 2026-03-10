@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { buildTslPreviewModule } from '../../../../../packages/schema/src/tsl-preview-module.ts'
 
 export type ShaderDetailUniform = {
   name: string
@@ -76,6 +77,7 @@ export type GlslShaderDetail = ShaderDetailBase & {
 export type TslShaderDetail = ShaderDetailBase & {
   language: 'tsl'
   tslSource: string
+  previewModule: string
 }
 
 export type ShaderDetail = GlslShaderDetail | TslShaderDetail
@@ -115,7 +117,7 @@ export async function loadShaderDetail(shaderDir: string): Promise<ShaderDetail>
     previewSvg = await readFile(join(shaderDir, preview.path), 'utf8')
   }
 
-  const base: Omit<ShaderDetail, 'language' | 'vertexSource' | 'fragmentSource' | 'tslSource'> = {
+  const base: Omit<ShaderDetail, 'language' | 'vertexSource' | 'fragmentSource' | 'tslSource' | 'previewModule'> = {
     name: manifest.name as string,
     displayName: manifest.displayName as string,
     version: manifest.version as string,
@@ -152,7 +154,7 @@ export async function loadShaderDetail(shaderDir: string): Promise<ShaderDetail>
   if (language === 'tsl') {
     const tslEntry = manifest.tslEntry as string
     const tslSource = await readFile(join(shaderDir, tslEntry), 'utf8')
-    return { ...base, language: 'tsl', tslSource }
+    return { ...base, language: 'tsl', tslSource, previewModule: buildTslPreviewModule(tslSource) }
   }
 
   const files = manifest.files as { vertex: string; fragment: string }

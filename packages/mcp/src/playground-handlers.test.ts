@@ -86,16 +86,16 @@ async function main() {
     assert.equal(result.previewAvailable, true);
   });
 
-  await runTest("create_playground TSL session returns previewAvailable false", async () => {
+  await runTest("create_playground TSL session returns previewAvailable true", async () => {
     const mockFetch = createMockFetch({
       "/api/playground/create": {
         status: 200,
-        body: { sessionId: "tsl-1", url: "https://test.shaderbase.com/playground?session=tsl-1", previewAvailable: false },
+        body: { sessionId: "tsl-1", url: "https://test.shaderbase.com/playground?session=tsl-1", previewAvailable: true },
       },
     });
 
     const result = await handleCreatePlayground({ language: "tsl", tslSource: "// tsl" }, env, mockFetch);
-    assert.equal(result.previewAvailable, false);
+    assert.equal(result.previewAvailable, true);
   });
 
   await runTest("create_playground forwards custom GLSL", async () => {
@@ -159,7 +159,7 @@ async function main() {
           structuredErrors: [{ kind: "tsl-parse", message: "Unexpected token at line 3" }],
           screenshotBase64: null,
           browserConnected: false,
-          previewAvailable: false,
+          previewAvailable: true,
         },
       },
     });
@@ -171,7 +171,7 @@ async function main() {
     );
     assert.equal(result.structuredErrors.length, 1);
     assert.equal(result.structuredErrors[0]!.kind, "tsl-parse");
-    assert.equal(result.previewAvailable, false);
+    assert.equal(result.previewAvailable, true);
     assert.equal(result.screenshotBase64, null);
   });
 

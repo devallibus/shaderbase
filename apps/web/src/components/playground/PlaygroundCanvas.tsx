@@ -1,10 +1,13 @@
-import { createEffect, createSignal, on, onCleanup, onMount } from 'solid-js'
+import { createEffect, createMemo, createSignal, on, onCleanup, onMount } from 'solid-js'
+import { buildTslPreviewModule } from '../../../../../packages/schema/src/tsl-preview-module.ts'
+import TslPreviewCanvas from '../TslPreviewCanvas'
 
 type THREE = typeof import('three')
 
 type PlaygroundCanvasProps = {
   vertexSource: string
   fragmentSource: string
+  tslSource?: string
   pipeline: string
   language: 'glsl' | 'tsl'
   onError: (errors: string[]) => void
@@ -19,6 +22,28 @@ function buildDefaultUniforms(THREE: THREE) {
 }
 
 export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
+  const tslPreviewModule = createMemo(() => {
+    if (props.language !== 'tsl' || !props.tslSource) return ''
+
+    try {
+      return buildTslPreviewModule(props.tslSource)
+    } catch (error) {
+      props.onError([error instanceof Error ? error.message : 'Failed to build TSL preview module'])
+      return ''
+    }
+  })
+
+  if (props.language === 'tsl') {
+    return (
+      <TslPreviewCanvas
+        previewModule={tslPreviewModule()}
+        pipeline={props.pipeline}
+        onError={props.onError}
+        onScreenshotReady={props.onScreenshotReady}
+      />
+    )
+  }
+
   let containerRef!: HTMLDivElement
   let renderer: InstanceType<THREE['WebGLRenderer']> | null = null
   let material: InstanceType<THREE['ShaderMaterial']> | null = null
@@ -33,12 +58,6 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
   const [initError, setInitError] = createSignal('')
 
   onMount(async () => {
-    // TSL preview not yet implemented — show placeholder
-    if (props.language === 'tsl') {
-      setLoading(false)
-      return
-    }
-
     let THREE: THREE
     try {
       THREE = await import('three')
@@ -254,7 +273,7 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
     on(
       () => [props.vertexSource, props.fragmentSource] as const,
       ([vertex, fragment]) => {
-        if (!threeModule || !renderer || props.language === 'tsl') return
+        if (!threeModule || !renderer) return
         compileShader(threeModule, vertex, fragment)
       },
       { defer: true },
@@ -274,16 +293,6 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
       {initError() && (
         <div class="absolute inset-0 flex items-center justify-center p-4">
           <p class="text-sm text-danger">{initError()}</p>
-        </div>
-      )}
-      {!loading() && props.language === 'tsl' && (
-        <div class="absolute inset-0 flex items-center justify-center p-4">
-          <div class="text-center">
-            <p class="text-sm font-medium text-text-secondary">TSL Preview</p>
-            <p class="mt-1 text-xs text-text-muted">
-              WebGPU-based TSL preview coming soon.
-            </p>
-          </div>
         </div>
       )}
     </div>

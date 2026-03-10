@@ -198,6 +198,7 @@ const registryShaderBundleBaseFields = {
   outputs: z.array(registryOutputSchema),
   recipes: z.record(z.string(), registryRecipeBundleSchema),
   provenance: registryProvenanceSchema,
+  previewSvg: z.string().min(1).optional(),
 };
 
 const registryGlslBundleSchema = z.object({
@@ -211,6 +212,7 @@ const registryTslBundleSchema = z.object({
   ...registryShaderBundleBaseFields,
   language: z.literal("tsl"),
   tslSource: z.string().min(1),
+  previewModule: z.string().min(1),
 });
 
 export const registryShaderBundleSchema = z.discriminatedUnion("language", [

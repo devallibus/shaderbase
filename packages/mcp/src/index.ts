@@ -129,7 +129,7 @@ const TOOLS = [
   {
     name: "create_playground",
     description:
-      "Create a new shader playground session. GLSL sessions have visual preview; TSL sessions support editing only (previewAvailable flag indicates status).",
+      "Create a new shader playground session for live editing and preview.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -168,7 +168,7 @@ const TOOLS = [
   {
     name: "update_shader",
     description:
-      "Update shader source in a playground session. Returns compilation errors, structured errors, and a screenshot (GLSL only).",
+      "Update shader source in a playground session. Returns compilation errors, structured errors, and a screenshot when a browser preview is connected.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -290,7 +290,7 @@ const TOOLS_MCP_FORMAT = [
   {
     name: "create_playground",
     description:
-      "Create a new shader playground session for live editing. Supports both GLSL and TSL languages. GLSL sessions have full visual preview with screenshots. TSL sessions support source editing but preview is not yet available (previewAvailable will be false). Returns a session ID, URL, and previewAvailable flag.",
+      "Create a new shader playground session for live editing. Supports both GLSL and TSL languages. When a browser has the playground open, both can render a live preview and return screenshots. Returns a session ID, URL, and previewAvailable flag.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -337,7 +337,7 @@ const TOOLS_MCP_FORMAT = [
   {
     name: "update_shader",
     description:
-      "Update shader source in a playground session. For GLSL sessions, provide vertexSource/fragmentSource. For TSL sessions, provide tslSource. Returns compilation errors, structured errors (with kind and message), and a screenshot for GLSL sessions. The previewAvailable flag indicates whether screenshots are supported.",
+      "Update shader source in a playground session. For GLSL sessions, provide vertexSource/fragmentSource. For TSL sessions, provide tslSource. Returns compilation errors, structured errors (with kind and message), and a screenshot when a browser preview is connected. The previewAvailable flag indicates the session supports live preview.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -364,7 +364,7 @@ const TOOLS_MCP_FORMAT = [
   {
     name: "get_preview",
     description:
-      "Get the latest screenshot from a playground session. Only available for GLSL sessions (TSL preview not yet implemented). Returns the most recent rendered frame as a PNG image.",
+      "Get the latest screenshot from a playground session. Returns the most recent rendered frame as a PNG image when a browser preview has uploaded one.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -563,11 +563,6 @@ async function handleMcpToolCall(
       const base64Data = result.screenshotBase64.replace(/^data:image\/png;base64,/, "");
       return {
         content: [{ type: "image", data: base64Data, mimeType: "image/png" }],
-      };
-    }
-    if (result.language === "tsl") {
-      return {
-        content: [{ type: "text", text: "Preview not available for TSL sessions. TSL preview requires WebGPU which is not yet implemented." }],
       };
     }
     return {
