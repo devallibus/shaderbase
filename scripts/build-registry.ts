@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { validateShaderManifestFile } from "../packages/schema/src/index.ts";
+import { buildTslPreviewModule } from "../packages/schema/src/tsl-preview-module.ts";
 import type {
   RegistryIndex,
   RegistryIndexEntry,
@@ -99,6 +100,11 @@ export async function buildRegistry({ shadersRoot, outputDir }: BuildRegistryOpt
       ...(manifest.provenance.notes !== undefined ? { notes: manifest.provenance.notes } : {}),
     };
 
+    const previewSvg =
+      manifest.preview.format === "svg"
+        ? readFileSync(join(shaderDir, manifest.preview.path), "utf8")
+        : undefined;
+
     // Index entry
     const indexEntry: RegistryIndexEntry = {
       name: manifest.name,
@@ -133,6 +139,7 @@ export async function buildRegistry({ shadersRoot, outputDir }: BuildRegistryOpt
       outputs: manifest.outputs,
       recipes,
       provenance,
+      ...(previewSvg !== undefined ? { previewSvg } : {}),
     };
 
     if (manifest.language === "glsl") {
@@ -150,6 +157,7 @@ export async function buildRegistry({ shadersRoot, outputDir }: BuildRegistryOpt
         ...sharedBundleFields,
         language: "tsl" as const,
         tslSource,
+        previewModule: buildTslPreviewModule(tslSource),
       };
     }
 

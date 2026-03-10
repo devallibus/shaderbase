@@ -86,8 +86,7 @@ export async function getShaderDetailFromSource(name: string): Promise<ShaderDet
       inputs: bundle.inputs as GlslShaderDetail['inputs'],
       outputs: bundle.outputs as GlslShaderDetail['outputs'],
       recipes,
-      // previewSvg is not available in the registry bundle
-      previewSvg: null,
+      previewSvg: (bundle.previewSvg as string | undefined) ?? null,
       provenance: {
         sourceKind: provenance.sourceKind as string,
         sources: (provenance.sources as GlslShaderDetail['provenance']['sources']) ?? [],
@@ -100,7 +99,12 @@ export async function getShaderDetailFromSource(name: string): Promise<ShaderDet
     }
 
     if (language === 'tsl') {
-      return { ...base, language: 'tsl' as const, tslSource: bundle.tslSource as string }
+      return {
+        ...base,
+        language: 'tsl' as const,
+        tslSource: bundle.tslSource as string,
+        previewModule: bundle.previewModule as string,
+      }
     }
     return {
       ...base,

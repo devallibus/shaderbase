@@ -201,6 +201,7 @@ runTest("writes TSL shader with recipe in subdirectory using relPath", () => {
       inputs: [],
       outputs: [{ name: "color", kind: "color", description: "Output color" }],
       tslSource: "export function createMaterial() { /* TSL */ }",
+      previewModule: "export function createPreview() { return { material: {} }; }",
       recipes: {
         three: {
           exportName: "createTslGradientWaveMaterial",

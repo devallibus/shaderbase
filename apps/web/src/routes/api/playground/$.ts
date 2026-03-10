@@ -92,7 +92,7 @@ async function handlePlayground(request: Request): Promise<Response> {
       const response: CreateSessionResponse = {
         sessionId: created.id,
         url: `${WEB_URL}/playground?session=${created.id}`,
-        previewAvailable: created.session.language === 'glsl',
+        previewAvailable: true,
       }
       return jsonResponse(response, 201)
     } catch (error) {
@@ -168,12 +168,12 @@ async function handlePlayground(request: Request): Promise<Response> {
       return badRequestResponse(error instanceof Error ? error.message : 'Invalid shader update request')
     }
 
-    const previewAvailable = session.language === 'glsl'
+    const previewAvailable = true
 
-    // Wait for screenshot from browser — only for GLSL (TSL preview not yet implemented)
+    // Wait for screenshot from the browser when it is connected.
     const browserConnected = hasSSEConnections(sessionId)
     let screenshotBase64: string | null = null
-    if (browserConnected && previewAvailable) {
+    if (browserConnected) {
       screenshotBase64 = await waitForScreenshot(sessionId, SCREENSHOT_WAIT_MS)
     }
 

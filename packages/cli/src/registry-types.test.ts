@@ -106,6 +106,7 @@ function makeValidShaderBundle() {
         summary: "Original shader by ShaderBase contributors.",
       },
     },
+    previewSvg: "<svg></svg>",
   };
 }
 
@@ -143,6 +144,7 @@ function makeValidTslBundle() {
       { name: "fragColor", kind: "color", description: "Output fragment color" },
     ],
     tslSource: "import { uniform, uv, vec4 } from 'three/tsl';\nexport const noiseMaterial = () => vec4(uv(), 0.0, 1.0);",
+    previewModule: "export function createPreview() { return { material: {} }; }",
     recipes: {
       three: {
         exportName: "createNoiseMaterial",
@@ -159,6 +161,7 @@ function makeValidTslBundle() {
         summary: "Original shader by ShaderBase contributors.",
       },
     },
+    previewSvg: "<svg></svg>",
   };
 }
 
@@ -223,6 +226,14 @@ runTest("rejects TSL bundle without tslSource", () => {
   const bundle = makeValidTslBundle();
   const { tslSource: _, ...withoutTsl } = bundle;
   const result = registryShaderBundleSchema.safeParse(withoutTsl);
+
+  assert.equal(result.success, false);
+});
+
+runTest("rejects TSL bundle without previewModule", () => {
+  const bundle = makeValidTslBundle();
+  const { previewModule: _, ...withoutPreviewModule } = bundle;
+  const result = registryShaderBundleSchema.safeParse(withoutPreviewModule);
 
   assert.equal(result.success, false);
 });

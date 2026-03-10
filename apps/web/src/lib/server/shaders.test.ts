@@ -168,7 +168,9 @@ async function main() {
     assert.equal(detail.name, 'tsl-gradient-wave')
     assert.equal(detail.displayName, 'TSL Gradient Wave')
     assert.ok('tslSource' in detail, 'TSL detail should have tslSource')
+    assert.ok('previewModule' in detail, 'TSL detail should have previewModule')
     assert.ok(detail.tslSource.includes('createMaterial'), 'tslSource should contain createMaterial')
+    assert.ok(detail.previewModule.includes('createPreview'), 'previewModule should contain createPreview')
     assert.ok(!('vertexSource' in detail), 'TSL detail should not have vertexSource')
     assert.ok(!('fragmentSource' in detail), 'TSL detail should not have fragmentSource')
   })
@@ -244,7 +246,9 @@ async function main() {
           sources: [],
           attribution: { summary: 'Created in ShaderBase' },
         },
+        previewSvg: '<svg><text>TSL Preview</text></svg>',
         tslSource: 'export function createMaterial() {}',
+        previewModule: 'export function createPreview() { return { material: {} }; }',
       })
     }) as typeof fetch
 
@@ -252,10 +256,12 @@ async function main() {
       const detail = await getShaderDetailFromSource('tsl-gradient-wave')
       assert.equal(detail.language, 'tsl')
       assert.ok('tslSource' in detail, 'TSL detail should have tslSource')
+      assert.ok('previewModule' in detail, 'TSL detail should have previewModule')
       assert.equal(detail.tslSource, 'export function createMaterial() {}')
+      assert.equal(detail.previewModule, 'export function createPreview() { return { material: {} }; }')
       assert.ok(!('vertexSource' in detail), 'TSL detail should not have vertexSource')
       assert.ok(!('fragmentSource' in detail), 'TSL detail should not have fragmentSource')
-      assert.equal(detail.previewSvg, null)
+      assert.equal(detail.previewSvg, '<svg><text>TSL Preview</text></svg>')
     } finally {
       globalThis.fetch = originalFetch
     }
@@ -307,6 +313,7 @@ async function main() {
           sources: [],
           attribution: { summary: 'Created in ShaderBase' },
         },
+        previewSvg: '<svg><text>GLSL Preview</text></svg>',
         vertexSource: 'void main() { gl_Position = vec4(position, 1.0); }',
         fragmentSource: 'void main() { gl_FragColor = vec4(1.0); }',
       })
@@ -320,7 +327,7 @@ async function main() {
       assert.ok(!('tslSource' in detail), 'GLSL detail should not have tslSource')
       assert.ok(detail.vertexSource.includes('gl_Position'))
       assert.ok(detail.fragmentSource.includes('gl_FragColor'))
-      assert.equal(detail.previewSvg, null)
+      assert.equal(detail.previewSvg, '<svg><text>GLSL Preview</text></svg>')
     } finally {
       globalThis.fetch = originalFetch
     }

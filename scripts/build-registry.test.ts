@@ -101,7 +101,16 @@ try {
     const bundle = JSON.parse(readFileSync(bundlePath, "utf8"));
     assert.equal(bundle.language, "tsl");
     assert.ok(bundle.tslSource.includes("createMaterial"), "tslSource should contain createMaterial");
+    assert.ok(bundle.previewModule.includes("createPreview"), "previewModule should contain createPreview");
     assert.equal(bundle.vertexSource, undefined, "TSL bundles should not have vertexSource");
+  });
+
+  runTest("SVG previews are inlined into shader bundles", () => {
+    const bundle = JSON.parse(
+      readFileSync(join(tempDir, "shaders", "tsl-gradient-wave.json"), "utf8"),
+    );
+    assert.ok(bundle.previewSvg, "TSL bundle should include previewSvg");
+    assert.ok(bundle.previewSvg.includes("<svg"), "previewSvg should contain SVG markup");
   });
 
   runTest("index entries are sorted alphabetically by name", () => {
