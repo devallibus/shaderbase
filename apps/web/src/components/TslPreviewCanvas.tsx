@@ -3,6 +3,8 @@ import type {
   TslPreviewModuleResult,
   TslPreviewModuleRuntime,
 } from '../../../../packages/schema/src/tsl-preview-module.ts'
+import { createPlainErrorReport, createTslErrorReport, TslPreviewError } from '../lib/tsl-error-reporting'
+import type { PlaygroundErrorReport } from '../lib/playground-types'
 
 type THREE = typeof import('three/webgpu')
 type TSL = typeof import('three/tsl')
@@ -12,7 +14,7 @@ type TslPreviewCanvasProps = {
   pipeline: string
   fallbackSvg?: string | null
   uniformOverrides?: Record<string, number | number[] | boolean>
-  onError?: (errors: string[]) => void
+  onError?: (report: PlaygroundErrorReport) => void
   onScreenshotReady?: (base64: string) => void
 }
 
@@ -55,14 +57,14 @@ export default function TslPreviewCanvas(props: TslPreviewCanvasProps) {
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal('')
 
-  function setPreviewError(message: string) {
-    setError(message)
-    props.onError?.([message])
+  function setPreviewError(report: PlaygroundErrorReport) {
+    setError(report.errors[0] ?? report.structuredErrors[0]?.message ?? 'Preview unavailable')
+    props.onError?.(report)
   }
 
   function clearPreviewError() {
     setError('')
-    props.onError?.([])
+    props.onError?.(createPlainErrorReport([]))
   }
 
   function captureScreenshot() {
@@ -110,7 +112,10 @@ export default function TslPreviewCanvas(props: TslPreviewCanvasProps) {
 
       const module = (await import(/* @vite-ignore */ currentModuleUrl)) as PreviewModuleNamespace
       if (typeof module.createPreview !== 'function') {
-        throw new Error('TSL preview modules must export createPreview(runtime).')
+        throw new TslPreviewError(
+          'tsl-material-build',
+          'TSL preview modules must export createPreview(runtime).',
+        )
       }
 
       const nextPreview = module.createPreview({
@@ -123,7 +128,10 @@ export default function TslPreviewCanvas(props: TslPreviewCanvasProps) {
       })
 
       if (!nextPreview?.material || typeof nextPreview.material !== 'object') {
-        throw new Error('createPreview(runtime) must return an object with a material.')
+        throw new TslPreviewError(
+          'tsl-material-build',
+          'createPreview(runtime) must return an object with a material.',
+        )
       }
 
       previewInstance = nextPreview as PreviewInstance
@@ -144,9 +152,7 @@ export default function TslPreviewCanvas(props: TslPreviewCanvasProps) {
     } catch (previewError) {
       disposePreviewMesh()
       setPreviewError(
-        previewError instanceof Error
-          ? previewError.message
-          : 'Failed to build the TSL preview module.',
+        createTslErrorReport(previewError, 'tsl-runtime', 'Failed to build the TSL preview module.'),
       )
     } finally {
       setLoading(false)
@@ -155,7 +161,13 @@ export default function TslPreviewCanvas(props: TslPreviewCanvasProps) {
 
   onMount(async () => {
     if (!('gpu' in navigator)) {
-      setPreviewError('WebGPU is not available in this browser.')
+      setPreviewError(
+        createTslErrorReport(
+          new TslPreviewError('tsl-runtime', 'WebGPU is not available in this browser.'),
+          'tsl-runtime',
+          'WebGPU is not available in this browser.',
+        ),
+      )
       setLoading(false)
       return
     }
@@ -236,9 +248,7 @@ export default function TslPreviewCanvas(props: TslPreviewCanvasProps) {
       await renderPreview(props.previewModule)
     } catch (previewError) {
       setPreviewError(
-        previewError instanceof Error
-          ? previewError.message
-          : 'Failed to initialize the TSL preview runtime.',
+        createTslErrorReport(previewError, 'tsl-runtime', 'Failed to initialize the TSL preview runtime.'),
       )
       setLoading(false)
     }

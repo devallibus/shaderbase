@@ -1,5 +1,5 @@
 import { createSignal, onCleanup, onMount, Show, lazy } from 'solid-js'
-import type { PlaygroundSession } from '../../lib/playground-types'
+import type { PlaygroundErrorReport, PlaygroundSession } from '../../lib/playground-types'
 
 const PlaygroundCanvas = lazy(() => import('./PlaygroundCanvas'))
 const PlaygroundEditor = lazy(() => import('./PlaygroundEditor'))
@@ -93,13 +93,13 @@ export default function PlaygroundLayout(props: PlaygroundLayoutProps) {
     }
   }
 
-  function handleErrors(errs: string[]) {
-    setErrors(errs)
+  function handleErrors(report: PlaygroundErrorReport) {
+    setErrors(report.errors)
     // Post errors to server so MCP can query them
     fetch(`/api/playground/${props.session.id}/errors`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ errors: errs }),
+      body: JSON.stringify(report),
     }).catch(() => {})
   }
 
