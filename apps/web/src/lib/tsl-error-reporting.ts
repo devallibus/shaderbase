@@ -31,6 +31,16 @@ export function createPlainErrorReport(errors: string[]): PlaygroundErrorReport 
   }
 }
 
+export function createKnownTslErrorReport(
+  kind: TslErrorKind,
+  message: string,
+): PlaygroundErrorReport {
+  return {
+    errors: [message],
+    structuredErrors: [{ kind, message }],
+  }
+}
+
 export function createTslErrorReport(
   error: unknown,
   fallbackKind: TslErrorKind,
@@ -43,8 +53,5 @@ export function createTslErrorReport(
       ? 'tsl-parse'
       : fallbackKind
 
-  return {
-    errors: [message],
-    structuredErrors: [{ kind, message }],
-  }
+  return createKnownTslErrorReport(kind, message)
 }
