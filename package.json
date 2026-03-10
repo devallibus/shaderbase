@@ -13,7 +13,7 @@
     "check": "bun run test && bun run typecheck && bun run validate:shaders && bun run build:web",
     "dev:web": "cd apps/web && bun run dev",
     "test": "node --experimental-strip-types packages/schema/src/index.test.ts && bun run test:cli && bun run test:mcp && bun run test:registry && bun run test:web",
-    "test:web": "node --experimental-strip-types apps/web/src/lib/server/shaders.test.ts && node --experimental-strip-types apps/web/src/lib/server/reviews-db.test.node.ts && node --experimental-strip-types apps/web/src/lib/server/playground-db.test.node.ts",
+    "test:web": "node --experimental-strip-types apps/web/src/lib/server/shaders.test.ts && node --experimental-strip-types apps/web/src/lib/server/reviews-db.test.node.ts && node --experimental-strip-types apps/web/src/lib/server/playground-db.test.node.ts && node --experimental-strip-types apps/web/src/lib/webgl-shader-errors.test.ts",
     "test:cli": "node --experimental-strip-types packages/cli/src/registry-types.test.ts && node --experimental-strip-types packages/cli/src/commands/search.test.ts && node --experimental-strip-types packages/cli/src/commands/add.test.ts && node --experimental-strip-types packages/cli/src/lib/resolve-source.test.ts && node --experimental-strip-types packages/cli/src/lib/build-manifest.test.ts && node --experimental-strip-types packages/cli/src/lib/github-pr.test.ts && node --experimental-strip-types packages/cli/src/commands/submit.test.ts",
     "test:mcp": "node --experimental-strip-types packages/mcp/src/handlers.test.ts && node --experimental-strip-types packages/mcp/src/index.test.ts",
     "test:registry": "node --experimental-strip-types scripts/build-registry.test.ts",
