@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type {
+  PlaygroundErrorReport,
   PlaygroundSession,
   PlaygroundError,
   UniformDefinition,
@@ -135,12 +136,7 @@ const sseConnections = new Map<string, Set<WritableStreamDefaultWriter<Uint8Arra
 // Screenshot wait queue: when an update is posted, the API waits for the
 // browser to send a screenshot back. This map stores resolve callbacks.
 const screenshotWaiters = new Map<string, Array<(base64: string | null) => void>>()
-const errorReportWaiters = new Map<string, Array<(report: ErrorReportPayload | null) => void>>()
-
-export type ErrorReportPayload = {
-  errors: string[]
-  structuredErrors: PlaygroundError[]
-}
+const errorReportWaiters = new Map<string, Array<(report: PlaygroundErrorReport | null) => void>>()
 
 export function addSSEConnection(sessionId: string, writer: WritableStreamDefaultWriter<Uint8Array>) {
   let set = sseConnections.get(sessionId)
@@ -209,7 +205,7 @@ export function resolveScreenshotWaiters(sessionId: string, base64: string) {
   }
 }
 
-export function waitForErrorReport(sessionId: string, timeoutMs: number): Promise<ErrorReportPayload | null> {
+export function waitForErrorReport(sessionId: string, timeoutMs: number): Promise<PlaygroundErrorReport | null> {
   return new Promise((resolve) => {
     const list = errorReportWaiters.get(sessionId) ?? []
     list.push(resolve)
@@ -228,7 +224,7 @@ export function waitForErrorReport(sessionId: string, timeoutMs: number): Promis
   })
 }
 
-export function resolveErrorReportWaiters(sessionId: string, report: ErrorReportPayload) {
+export function resolveErrorReportWaiters(sessionId: string, report: PlaygroundErrorReport) {
   const list = errorReportWaiters.get(sessionId)
   if (!list || list.length === 0) return
   errorReportWaiters.delete(sessionId)
@@ -239,7 +235,7 @@ export function resolveErrorReportWaiters(sessionId: string, report: ErrorReport
 
 export async function waitForBrowserSyncResult(sessionId: string, timeoutMs: number): Promise<{
   screenshotBase64: string | null
-  errorReport: ErrorReportPayload | null
+  errorReport: PlaygroundErrorReport | null
 }> {
   const screenshotPromise = waitForScreenshot(sessionId, timeoutMs).then((base64) => ({
     type: 'screenshot' as const,
@@ -253,13 +249,13 @@ export async function waitForBrowserSyncResult(sessionId: string, timeoutMs: num
   let waitForScreenshotEvent = true
   let waitForErrorEvent = true
   let screenshotBase64: string | null = null
-  let errorReport: ErrorReportPayload | null = null
+  let errorReport: PlaygroundErrorReport | null = null
 
   while (waitForScreenshotEvent || waitForErrorEvent) {
     const pending: Array<
       Promise<
         | { type: 'screenshot'; base64: string | null }
-        | { type: 'errorReport'; report: ErrorReportPayload | null }
+        | { type: 'errorReport'; report: PlaygroundErrorReport | null }
       >
     > = []
 
@@ -439,7 +435,7 @@ export function setStructuredErrors(id: string, errors: PlaygroundError[]): void
   ).run(JSON.stringify(errors), id)
 }
 
-export function recordErrorReport(id: string, report: ErrorReportPayload): void {
+export function recordErrorReport(id: string, report: PlaygroundErrorReport): void {
   setErrors(id, report.errors)
   setStructuredErrors(id, report.structuredErrors)
   resolveErrorReportWaiters(id, report)
