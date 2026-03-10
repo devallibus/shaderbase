@@ -3,7 +3,12 @@ import type {
   TslPreviewModuleResult,
   TslPreviewModuleRuntime,
 } from '../../../../packages/schema/src/tsl-preview-module.ts'
-import { createPlainErrorReport, createTslErrorReport, TslPreviewError } from '../lib/tsl-error-reporting'
+import {
+  createKnownTslErrorReport,
+  createPlainErrorReport,
+  createTslErrorReport,
+  TslPreviewError,
+} from '../lib/tsl-error-reporting'
 import type { PlaygroundErrorReport } from '../lib/playground-types'
 
 type THREE = typeof import('three/webgpu')
@@ -161,13 +166,7 @@ export default function TslPreviewCanvas(props: TslPreviewCanvasProps) {
 
   onMount(async () => {
     if (!('gpu' in navigator)) {
-      setPreviewError(
-        createTslErrorReport(
-          new TslPreviewError('tsl-runtime', 'WebGPU is not available in this browser.'),
-          'tsl-runtime',
-          'WebGPU is not available in this browser.',
-        ),
-      )
+      setPreviewError(createKnownTslErrorReport('tsl-runtime', 'WebGPU is not available in this browser.'))
       setLoading(false)
       return
     }

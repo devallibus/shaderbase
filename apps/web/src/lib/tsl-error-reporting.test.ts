@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  createKnownTslErrorReport,
   createPlainErrorReport,
   createTslErrorReport,
   TslPreviewError,
@@ -45,6 +46,34 @@ runTest('createTslErrorReport maps SyntaxError to tsl-parse', () => {
     structuredErrors: [{
       kind: 'tsl-parse',
       message: 'Unexpected token',
+    }],
+  })
+})
+
+runTest('createTslErrorReport falls back to the provided kind for plain Error', () => {
+  const report = createTslErrorReport(
+    new Error('Material compilation failed'),
+    'tsl-runtime',
+    'fallback',
+  )
+
+  assert.deepEqual(report, {
+    errors: ['Material compilation failed'],
+    structuredErrors: [{
+      kind: 'tsl-runtime',
+      message: 'Material compilation failed',
+    }],
+  })
+})
+
+runTest('createKnownTslErrorReport creates a structured TSL error directly', () => {
+  const report = createKnownTslErrorReport('tsl-runtime', 'WebGPU is not available in this browser.')
+
+  assert.deepEqual(report, {
+    errors: ['WebGPU is not available in this browser.'],
+    structuredErrors: [{
+      kind: 'tsl-runtime',
+      message: 'WebGPU is not available in this browser.',
     }],
   })
 })
