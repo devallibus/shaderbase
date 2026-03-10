@@ -10,5 +10,5 @@ WEB_APP_URL = "https://shaderbase.com"
 name = "shaderbase-mcp-dev"
 
 [env.development.vars]
-REGISTRY_URL = "https://registry.shaderbase.com"
+REGISTRY_URL = "https://development.shaderbase-registry.pages.dev"
 WEB_APP_URL = "https://blissful-acceptance-development.up.railway.app"
