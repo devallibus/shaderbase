@@ -4,12 +4,11 @@ import {
   getSession,
   updateShader,
   setScreenshot,
-  setErrors,
-  setStructuredErrors,
+  recordErrorReport,
   hasSSEConnections,
   addSSEConnection,
   removeSSEConnection,
-  waitForScreenshot,
+  waitForBrowserSyncResult,
 } from '../../../lib/server/playground-db'
 import type {
   PlaygroundError,
@@ -64,7 +63,7 @@ function jsonResponse(data: unknown, status = 200): Response {
 // ---------------------------------------------------------------------------
 
 const WEB_URL = process.env.WEB_URL || 'https://shaderbase.com'
-const SCREENSHOT_WAIT_MS = 5000
+const BROWSER_SYNC_WAIT_MS = 5000
 
 async function handlePlayground(request: Request): Promise<Response> {
   const url = new URL(request.url)
@@ -170,11 +169,14 @@ async function handlePlayground(request: Request): Promise<Response> {
 
     const previewAvailable = true
 
-    // Wait for screenshot from the browser when it is connected.
+    // Wait for browser feedback when it is connected. Successful renders
+    // should produce both an empty error report and a screenshot. Failed
+    // renders should produce a non-empty error report.
     const browserConnected = hasSSEConnections(sessionId)
     let screenshotBase64: string | null = null
     if (browserConnected) {
-      screenshotBase64 = await waitForScreenshot(sessionId, SCREENSHOT_WAIT_MS)
+      const browserResult = await waitForBrowserSyncResult(sessionId, BROWSER_SYNC_WAIT_MS)
+      screenshotBase64 = browserResult.screenshotBase64
     }
 
     // Re-fetch session to get latest errors
@@ -210,8 +212,10 @@ async function handlePlayground(request: Request): Promise<Response> {
       errors: string[]
       structuredErrors?: PlaygroundError[]
     }
-    setErrors(sessionId, body.errors ?? [])
-    setStructuredErrors(sessionId, body.structuredErrors ?? [])
+    recordErrorReport(sessionId, {
+      errors: body.errors ?? [],
+      structuredErrors: body.structuredErrors ?? [],
+    })
     return jsonResponse({ status: 'ok' })
   }
 
