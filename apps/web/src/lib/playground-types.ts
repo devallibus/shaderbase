@@ -29,6 +29,11 @@ export type PlaygroundError =
   | { kind: 'tsl-runtime'; message: string }
   | { kind: 'tsl-material-build'; message: string }
 
+export type PlaygroundErrorReport = {
+  errors: string[]
+  structuredErrors: PlaygroundError[]
+}
+
 // ---------------------------------------------------------------------------
 // Session types — discriminated union on language
 // ---------------------------------------------------------------------------

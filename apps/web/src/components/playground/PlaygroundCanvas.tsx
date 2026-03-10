@@ -1,6 +1,8 @@
 import { createEffect, createMemo, createSignal, on, onCleanup, onMount } from 'solid-js'
 import { buildTslPreviewModule } from '../../../../../packages/schema/src/tsl-preview-module.ts'
 import { collectShaderDiagnostics, diagnosticsToMessages } from '../../lib/webgl-shader-errors'
+import { createPlainErrorReport, createTslErrorReport } from '../../lib/tsl-error-reporting'
+import type { PlaygroundErrorReport } from '../../lib/playground-types'
 import TslPreviewCanvas from '../TslPreviewCanvas'
 
 type THREE = typeof import('three')
@@ -11,7 +13,7 @@ type PlaygroundCanvasProps = {
   tslSource?: string
   pipeline: string
   language: 'glsl' | 'tsl'
-  onError: (errors: string[]) => void
+  onError: (report: PlaygroundErrorReport) => void
   onScreenshotReady: (base64: string) => void
 }
 
@@ -29,7 +31,7 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
     try {
       return buildTslPreviewModule(props.tslSource)
     } catch (error) {
-      props.onError([error instanceof Error ? error.message : 'Failed to build TSL preview module'])
+      props.onError(createTslErrorReport(error, 'tsl-parse', 'Failed to build TSL preview module.'))
       return ''
     }
   })
@@ -172,7 +174,7 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
         uniforms: shaderUniforms,
       })
     } catch (e) {
-      props.onError([e instanceof Error ? e.message : 'Shader compilation failed'])
+      props.onError(createPlainErrorReport([e instanceof Error ? e.message : 'Shader compilation failed']))
       return
     }
 
@@ -210,21 +212,21 @@ export default function PlaygroundCanvas(props: PlaygroundCanvasProps) {
         ? renderError.message
         : 'Shader compilation failed'
 
-      props.onError(
+      props.onError(createPlainErrorReport(
         shaderDiagnostics.length > 0 ? diagnosticsToMessages(shaderDiagnostics) : [fallbackMessage],
-      )
+      ))
       return
     } finally {
       renderer.debug.onShaderError = previousShaderError
     }
 
     if (shaderDiagnostics.length > 0) {
-      props.onError(diagnosticsToMessages(shaderDiagnostics))
+      props.onError(createPlainErrorReport(diagnosticsToMessages(shaderDiagnostics)))
       return
     }
 
     // No errors — clear any previous errors and capture screenshot
-    props.onError([])
+    props.onError(createPlainErrorReport([]))
     captureScreenshot()
   }
 
