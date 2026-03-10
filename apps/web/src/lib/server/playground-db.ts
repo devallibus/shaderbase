@@ -34,8 +34,14 @@ const DEFAULT_UNIFORMS: UniformDefinition[] = [
   { name: 'uTime', type: 'float', defaultValue: 0, description: 'Elapsed time in seconds' },
 ]
 
+const VALID_LANGUAGES = new Set(['glsl', 'tsl'])
+
 function validateCreateSessionRequest(opts?: CreateSessionRequest) {
   const language = opts?.language ?? 'glsl'
+
+  if (!VALID_LANGUAGES.has(language)) {
+    throw new Error(`Invalid language "${language}". Must be "glsl" or "tsl".`)
+  }
 
   if (language === 'glsl') {
     if ('tslSource' in (opts ?? {}) && opts?.tslSource !== undefined) {
